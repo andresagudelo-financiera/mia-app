@@ -1,0 +1,27 @@
+phase: tasks
+change: mia-platform-v1
+updated: "2026-04-29"
+
+phases:
+  explore: skipped
+  propose: done
+  spec: done
+  design: done
+  tasks: done
+  apply: pending
+  verify: pending
+  archive: pending
+
+domains_specced:
+  - landing-home
+  - user-registration
+  - user-profile
+  - calculator-config
+  - calculator-investments
+  - calculator-transactions
+  - calculator-snapshots
+  - calculator-results
+  - xirr-engine
+  - trm-live
+  - pdf-report
+  - analytics-tracking

@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  Project: MIA Platform v1 — Plataforma de educación e inteligencia financiera personal
+  Brand: Moneyflow (coral primario #F04E37)
+  Tech stack: Next.js 14 App Router, TypeScript, Tailwind CSS, shadcn/ui, Zustand, Framer Motion, GSAP
+  State: Zustand + localStorage (sin backend en v1)
+  Auth: localStorage profile v1 (sin Clerk/NextAuth)
+  PDF: @react-pdf/renderer (client-side)
+  Analytics: GTM → GA4 + Meta Pixel + Microsoft Clarity
+  Calculations: XIRR Newton-Raphson propio, ExchangeRate-API (TRM live)
+  Testing: Vitest para lógica financiera (XIRR, cálculos)
+  Architecture: Next.js App Router — rutas independientes por calculadora
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Align with PRD sections explicitly
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Every financial calculation MUST have edge-case scenario
+  design:
+    - Include sequence diagrams for XIRR and TRM flows
+    - Document architecture decisions with rationale
+    - Specify localStorage key schema explicitly
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+    - Financial logic tasks MUST include unit test
+  apply:
+    - Follow existing code patterns
+    tdd: false
+    test_command: "npm run test"
+  verify:
+    test_command: "npm run test"
+    build_command: "npm run build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
