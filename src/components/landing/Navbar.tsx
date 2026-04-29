@@ -7,7 +7,11 @@ import { Menu, X, Calculator, User } from 'lucide-react'
 import { useUserStore } from '@/stores/user.store'
 import { cn } from '@/lib/utils'
 
-export default function Navbar() {
+interface Props {
+  variant?: 'default' | 'minimal'
+}
+
+export default function Navbar({ variant = 'default' }: Props) {
   const [isOpen, setIsOpen] = useState(false)
   const profile = useUserStore(s => s.profile)
 
@@ -32,48 +36,61 @@ export default function Navbar() {
             />
           </Link>
 
-          {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-8">
-            {links.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm text-neutral hover:text-mia-cream transition-colors duration-200"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
+          {variant === 'default' && (
+            <>
+              {/* Desktop nav */}
+              <div className="hidden md:flex items-center gap-8">
+                {links.map(link => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-neutral hover:text-mia-cream transition-colors duration-200"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
 
-          {/* CTA + User */}
-          <div className="hidden md:flex items-center gap-4">
-            {profile?.name && (
+              {/* CTA + User */}
+              <div className="hidden md:flex items-center gap-4">
+                {profile?.name && (
+                  <span className="text-sm text-neutral">
+                    Hola, <span className="text-mia-cream font-medium">{profile.name.split(' ')[0]}</span>
+                  </span>
+                )}
+                <Link
+                  href="/calculadoras/rentabilidad"
+                  className="flex items-center gap-2 bg-gradient-mf text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Calcular rentabilidad
+                </Link>
+              </div>
+
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="md:hidden p-2 text-neutral hover:text-mia-cream transition-colors"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </>
+          )}
+
+          {/* Minimal Nav User Display */}
+          {variant === 'minimal' && profile?.name && (
+            <div className="flex items-center">
               <span className="text-sm text-neutral">
                 Hola, <span className="text-mia-cream font-medium">{profile.name.split(' ')[0]}</span>
               </span>
-            )}
-            <Link
-              href="/calculadoras/rentabilidad"
-              className="flex items-center gap-2 bg-gradient-mf text-white text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              <Calculator className="w-4 h-4" />
-              Calcular rentabilidad
-            </Link>
-          </div>
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 text-neutral hover:text-mia-cream transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Mobile menu */}
-      {isOpen && (
+      {variant === 'default' && isOpen && (
         <div className="md:hidden glass border-t border-mia-border">
           <div className="px-4 py-4 space-y-3">
             {links.map(link => (

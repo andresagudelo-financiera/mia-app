@@ -36,6 +36,7 @@ module.exports = {
       fontFamily: {
         heading: ["var(--font-heading)", "sans-serif"],
         body:    ["var(--font-body)",    "sans-serif"],
+        roboto:  ["var(--font-roboto)",  "sans-serif"],
       },
       backgroundImage: {
         "gradient-mf":  "linear-gradient(135deg, #F04E37, #FF8C42)",

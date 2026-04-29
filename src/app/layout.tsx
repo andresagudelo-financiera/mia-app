@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Inter, Syne } from 'next/font/google'
+import { Inter, Roboto, Syne } from 'next/font/google'
 import Script from 'next/script'
 import './globals.css'
 
@@ -13,6 +13,13 @@ const syne = Syne({
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-body',
+  display: 'swap',
+})
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  weight: ['400', '500', '700', '900'],
+  variable: '--font-roboto',
   display: 'swap',
 })
 
@@ -47,7 +54,7 @@ const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es" className={`${syne.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${syne.variable} ${inter.variable} ${roboto.variable}`} suppressHydrationWarning>
         {/* Google Tag Manager */}
         {GTM_ID && (
           <Script id="gtm-head" strategy="beforeInteractive">
@@ -58,7 +65,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','${GTM_ID}');`}
           </Script>
         )}
-      <body className="min-h-screen bg-mia-black antialiased">
+      <body className="min-h-screen bg-mia-black antialiased overflow-x-hidden">
         {/* GTM noscript */}
         {GTM_ID && (
           <noscript>

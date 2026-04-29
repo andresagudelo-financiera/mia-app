@@ -86,7 +86,7 @@ export default function CalculadoraLayout() {
       {!showModal && !showOnboarding && (
         <>
           {/* Page Header */}
-          <div className="border-b border-mia-border bg-mia-card/40 sticky top-16 z-40">
+          <div className="border-b border-mia-border bg-mia-black/95 backdrop-blur-md sticky top-16 z-40">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
               <div className="flex items-center justify-between gap-4 mb-4">
                 <div>
