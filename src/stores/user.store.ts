@@ -3,17 +3,14 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { UserProfile, RegisterInput } from '@/types/rentabilidad'
+import { userApi } from '@/services/api/user.api'
 
 interface UserStore {
   profile: UserProfile | null
   isRegistered: boolean
-  register: (data: RegisterInput) => void
+  register: (data: RegisterInput) => Promise<void>
   updateProfile: (updates: Partial<Omit<UserProfile, 'id' | 'registeredAt'>>) => void
   clearProfile: () => void
-}
-
-function generateId(): string {
-  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
 }
 
 export const useUserStore = create<UserStore>()(
@@ -22,17 +19,11 @@ export const useUserStore = create<UserStore>()(
       profile: null,
       isRegistered: false,
 
-      register: (data) => {
-        const profile: UserProfile = {
-          id: generateId(),
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          baseCurrency: data.baseCurrency,
-          registeredAt: new Date().toISOString(),
-          hasCompletedOnboarding: false,
+      register: async (data) => {
+        const profile = await userApi.register(data);
+        if (profile) {
+          set({ profile, isRegistered: true });
         }
-        set({ profile, isRegistered: true })
       },
 
       updateProfile: (updates) =>

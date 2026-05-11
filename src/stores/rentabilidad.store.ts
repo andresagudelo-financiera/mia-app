@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Config, Investment, Transaction, Snapshot, RentabilidadStoreData } from '@/types/rentabilidad'
 import { DEFAULT_PILLARS, DEFAULT_ENTITIES, SUPPORTED_CURRENCIES } from '@/lib/constants'
+import { rentabilidadApi } from '@/services/api/rentabilidad.api'
 
 const DEFAULT_CONFIG: Config = {
   baseCurrency: 'COP',
@@ -41,6 +42,7 @@ interface RentabilidadStore extends RentabilidadStoreData {
   exportData: () => RentabilidadStoreData
   importData: (data: RentabilidadStoreData) => void
   clearData: () => void
+  syncWithBackend: (userId: string) => Promise<boolean>
 }
 
 function generateId(): string {
@@ -169,6 +171,11 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
           snapshots: [],
           lastUpdated: new Date().toISOString(),
         }),
+
+      syncWithBackend: async (userId: string) => {
+        const { config, investments, transactions, snapshots } = get()
+        return await rentabilidadApi.sync(userId, { config, investments, transactions, snapshots })
+      },
     }),
     {
       name: 'mia-rentabilidad',
