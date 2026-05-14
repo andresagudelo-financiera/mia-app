@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-mia-black">
-      <Navbar />
+      <Navbar variant="home" />
       <Hero />
       <WhatIsMIA />
       <CalculatorCards />

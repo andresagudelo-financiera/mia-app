@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronRight, ChevronLeft, Settings, Globe, CheckCircle, Sparkles } from 'lucide-react'
 import { useRentabilidadStore } from '@/stores/rentabilidad.store'
 import { useUserStore } from '@/stores/user.store'
@@ -18,11 +18,18 @@ export default function OnboardingConfig({ onComplete }: Props) {
   const profile = useUserStore(s => s.profile)
   const [step, setStep] = useState<Step>('moneda')
   const [currency, setCurrency] = useState(profile?.baseCurrency ?? 'COP')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleConfirm = () => {
     setBaseCurrency(currency)
     onComplete()
   }
+
+  if (!mounted) return null
 
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-mia-black p-4 animate-in fade-in duration-300">
@@ -162,7 +169,7 @@ export default function OnboardingConfig({ onComplete }: Props) {
   )
 }
 
-function AnimatedStep({ children, key: k }: { children: React.ReactNode; key?: string }) {
+function AnimatedStep({ children }: { children: React.ReactNode }) {
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-300">
       {children}

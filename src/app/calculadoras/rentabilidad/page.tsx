@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function RentabilidadPage() {
   return (
     <>
-      <Navbar variant="minimal" />
+      <Navbar variant="user" />
       <div className="pt-16">
         <CalculadoraLayout />
       </div>

@@ -66,8 +66,13 @@ export type UserProfile = {
   email: string
   phone: string
   baseCurrency: string
+  role?: UserRole
+  status?: UserStatus
   registeredAt: string
+  lastSeenAt?: string
   hasCompletedOnboarding: boolean
+  hasPassword?: boolean
+  accesses?: UserAccess[]
 }
 
 export type RegisterInput = {
@@ -75,6 +80,7 @@ export type RegisterInput = {
   email: string
   phone: string
   baseCurrency: string
+  password: string
 }
 
 export type RentabilidadStoreData = {
@@ -94,6 +100,8 @@ export type AnalyticsEvent =
   | 'results_viewed'
   | 'pdf_downloaded'
   | 'user_registered'
+  | 'user_password_created'
+  | 'user_login'
   | 'trm_manual_override'
 
 // Computed flow fields (derived, not stored)
@@ -101,4 +109,69 @@ export type ComputedFlows = {
   flowLocal?: number
   flowUSD?: number
   flowLocalAsUSD?: number
+}
+
+// ============================================================
+// Admin / Access Control Types
+// ============================================================
+
+export type UserRole = 'user' | 'admin'
+
+export type UserStatus = 'active' | 'demo' | 'expired' | 'blocked' | 'paid'
+
+export type SimulatorStatus = 'active' | 'disabled' | 'coming_soon' | 'hidden'
+
+export type SimulatorAccessType = 'free' | 'demo' | 'paid' | 'admin_only'
+
+export type UserAccessStatus = 'active' | 'expired' | 'revoked'
+
+export type Simulator = {
+  id: string
+  slug: string
+  name: string
+  description?: string
+  status: SimulatorStatus
+  accessType: SimulatorAccessType
+  demoDays?: number | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type UserAccess = {
+  id: string
+  userId: string
+  simulatorId?: string
+  simulatorSlug?: string
+  simulatorName?: string
+  toolName?: string
+  accessType: SimulatorAccessType
+  status: UserAccessStatus
+  startsAt?: string
+  expiresAt?: string | null
+  createdAt?: string
+  createdBy?: string
+  notes?: string
+}
+
+export type UsageEvent = {
+  id: string
+  userId: string
+  simulatorId?: string
+  simulatorSlug?: string
+  eventName: AnalyticsEvent | string
+  metadata?: Record<string, unknown> | null
+  createdAt: string
+}
+
+export type AdminUserSummary = UserProfile & {
+  investmentCount?: number
+  transactionCount?: number
+  snapshotCount?: number
+  pdfDownloadCount?: number
+  lastSimulatorUsed?: string
+}
+
+export type AdminUserDetail = AdminUserSummary & {
+  usageEvents?: UsageEvent[]
+  rentabilidadData?: RentabilidadStoreData | null
 }

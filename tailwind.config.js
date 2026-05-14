@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ["class"],
+  darkMode: ['class'],
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -10,54 +10,51 @@ module.exports = {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
-      screens: { "2xl": "1400px" },
+      padding: '2rem',
+      screens: { '2xl': '1400px' },
     },
     extend: {
       colors: {
-        // MIA Holding Base
-        "mia-black":   "#0A0A0A",
-        "mia-cream":   "#F5F3EE",
-        "mia-card":    "#1A1A1A",
-        "mia-surface": "#2A2A2A",
-        "mia-border":  "#333333",
-        // MIA Institutional
-        "mia-blue":    "#5C8BC4",
-        "mia-teal":    "#3ABFAA",
-        "mia-deep":    "#2D4A6E",
-        // Moneyflow Brand
-        "mf-coral":    "#F04E37",
-        "mf-orange":   "#FF8C42",
-        // Financial semantics
-        "gain":        "#22C55E",
-        "loss":        "#EF4444",
-        "neutral":     "#A1A1AA",
+        // MIA semantic tokens — backed by CSS variables for light/dark mode.
+        'mia-black': 'rgb(var(--color-mia-black) / <alpha-value>)',
+        'mia-cream': 'rgb(var(--color-mia-cream) / <alpha-value>)',
+        'mia-card': 'rgb(var(--color-mia-card) / <alpha-value>)',
+        'mia-surface': 'rgb(var(--color-mia-surface) / <alpha-value>)',
+        'mia-border': 'rgb(var(--color-mia-border) / <alpha-value>)',
+        'mia-blue': 'rgb(var(--color-mia-blue) / <alpha-value>)',
+        'mia-teal': 'rgb(var(--color-mia-teal) / <alpha-value>)',
+        'mia-deep': 'rgb(var(--color-mia-deep) / <alpha-value>)',
+        'mf-coral': 'rgb(var(--color-mf-coral) / <alpha-value>)',
+        'mf-orange': 'rgb(var(--color-mf-orange) / <alpha-value>)',
+        gain: 'rgb(var(--color-gain) / <alpha-value>)',
+        loss: 'rgb(var(--color-loss) / <alpha-value>)',
+        neutral: 'rgb(var(--color-neutral) / <alpha-value>)',
       },
       fontFamily: {
-        heading: ["var(--font-heading)", "sans-serif"],
-        body:    ["var(--font-body)",    "sans-serif"],
-        roboto:  ["var(--font-roboto)",  "sans-serif"],
+        heading: ['var(--font-heading)', 'sans-serif'],
+        body: ['var(--font-body)', 'sans-serif'],
+        roboto: ['var(--font-roboto)', 'sans-serif'],
       },
       backgroundImage: {
-        "gradient-mf":  "linear-gradient(135deg, #F04E37, #FF8C42)",
-        "gradient-mia": "linear-gradient(135deg, #5C8BC4, #3ABFAA)",
-        "gradient-dark": "linear-gradient(180deg, #0A0A0A 0%, #111111 100%)",
+        'gradient-mf': 'linear-gradient(135deg, rgb(var(--color-mf-coral)), rgb(var(--color-mf-orange)))',
+        'gradient-mia': 'linear-gradient(135deg, rgb(var(--color-mia-blue)), rgb(var(--color-mia-teal)))',
+        'gradient-dark': 'linear-gradient(180deg, rgb(var(--color-mia-black)) 0%, rgb(var(--color-mia-card)) 100%)',
       },
       keyframes: {
-        "fade-in": {
-          "0%": { opacity: "0", transform: "translateY(16px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
+        'fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(16px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(240,78,55,0.3)" },
-          "50%":       { boxShadow: "0 0 40px rgba(240,78,55,0.6)" },
+        'pulse-glow': {
+          '0%, 100%': { boxShadow: '0 0 20px rgb(var(--color-mf-coral) / 0.3)' },
+          '50%': { boxShadow: '0 0 40px rgb(var(--color-mf-coral) / 0.6)' },
         },
       },
       animation: {
-        "fade-in": "fade-in 0.6s ease-out",
-        "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        'fade-in': 'fade-in 0.6s ease-out',
+        'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require('tailwindcss-animate')],
 }

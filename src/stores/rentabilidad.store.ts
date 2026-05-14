@@ -42,11 +42,18 @@ interface RentabilidadStore extends RentabilidadStoreData {
   exportData: () => RentabilidadStoreData
   importData: (data: RentabilidadStoreData) => void
   clearData: () => void
+  syncStatus: 'idle' | 'saving' | 'saved' | 'error'
+  lastSyncedAt: string | null
+  syncError: string | null
   syncWithBackend: (userId: string) => Promise<boolean>
 }
 
 function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
+}
+
+function nowIso(): string {
+  return new Date().toISOString()
 }
 
 export const useRentabilidadStore = create<RentabilidadStore>()(
@@ -56,44 +63,61 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       investments: [],
       transactions: [],
       snapshots: [],
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: nowIso(),
+      syncStatus: 'idle',
+      lastSyncedAt: null,
+      syncError: null,
 
       // === CONFIG ===
       setBaseCurrency: (currency) =>
-        set((s) => ({ config: { ...s.config, baseCurrency: currency }, lastUpdated: new Date().toISOString() })),
+        set((s) => ({ config: { ...s.config, baseCurrency: currency }, lastUpdated: nowIso() })),
 
       addPillar: (name) =>
-        set((s) => ({ config: { ...s.config, pillars: [...(s.config.pillars || []), name] } })),
+        set((s) => ({
+          config: { ...s.config, pillars: [...(s.config.pillars || []), name] },
+          lastUpdated: nowIso(),
+        })),
 
       updatePillar: (oldName, newName) =>
         set((s) => ({
           config: { ...s.config, pillars: (s.config.pillars || []).map(p => p === oldName ? newName : p) },
           investments: s.investments.map(inv => inv.pilar === oldName ? { ...inv, pilar: newName } : inv),
+          lastUpdated: nowIso(),
         })),
 
       removePillar: (name) =>
-        set((s) => ({ config: { ...s.config, pillars: (s.config.pillars || []).filter(p => p !== name) } })),
+        set((s) => ({
+          config: { ...s.config, pillars: (s.config.pillars || []).filter(p => p !== name) },
+          lastUpdated: nowIso(),
+        })),
 
       addEntity: (name) =>
-        set((s) => ({ config: { ...s.config, entities: [...(s.config.entities || []), name] } })),
+        set((s) => ({
+          config: { ...s.config, entities: [...(s.config.entities || []), name] },
+          lastUpdated: nowIso(),
+        })),
 
       updateEntity: (oldName, newName) =>
         set((s) => ({
           config: { ...s.config, entities: (s.config.entities || []).map(e => e === oldName ? newName : e) },
           investments: s.investments.map(inv => inv.entity === oldName ? { ...inv, entity: newName } : inv),
           transactions: s.transactions.map(tx => tx.entity === oldName ? { ...tx, entity: newName } : tx),
+          lastUpdated: nowIso(),
         })),
 
       removeEntity: (name) =>
-        set((s) => ({ config: { ...s.config, entities: (s.config.entities || []).filter(e => e !== name) } })),
+        set((s) => ({
+          config: { ...s.config, entities: (s.config.entities || []).filter(e => e !== name) },
+          lastUpdated: nowIso(),
+        })),
 
       // === INVESTMENTS ===
       addInvestment: (inv) => {
         const state = get()
         if (state.investments.some(i => i.name === inv.name)) return false
         set({
-          investments: [...state.investments, { ...inv, id: generateId(), createdAt: new Date().toISOString() }],
-          lastUpdated: new Date().toISOString(),
+          investments: [...state.investments, { ...inv, id: generateId(), createdAt: nowIso() }],
+          lastUpdated: nowIso(),
         })
         return true
       },
@@ -101,7 +125,7 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       updateInvestment: (id, updates) =>
         set((s) => ({
           investments: s.investments.map(inv => inv.id === id ? { ...inv, ...updates } : inv),
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       removeInvestment: (id) =>
@@ -112,7 +136,7 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
             investments: s.investments.filter(i => i.id !== id),
             transactions: s.transactions.filter(t => t.investmentName !== inv.name),
             snapshots: s.snapshots.filter(snap => snap.investmentName !== inv.name),
-            lastUpdated: new Date().toISOString(),
+            lastUpdated: nowIso(),
           }
         }),
 
@@ -120,38 +144,38 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       addTransaction: (tx) =>
         set((s) => ({
           transactions: [...s.transactions, { ...tx, id: generateId() }],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       updateTransaction: (id, updates) =>
         set((s) => ({
           transactions: s.transactions.map(t => t.id === id ? { ...t, ...updates } : t),
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       removeTransaction: (id) =>
         set((s) => ({
           transactions: s.transactions.filter(t => t.id !== id),
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       // === SNAPSHOTS ===
       addSnapshot: (snap) =>
         set((s) => ({
           snapshots: [...s.snapshots, { ...snap, id: generateId() }],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       updateSnapshot: (id, updates) =>
         set((s) => ({
           snapshots: s.snapshots.map(snap => snap.id === id ? { ...snap, ...updates } : snap),
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       removeSnapshot: (id) =>
         set((s) => ({
           snapshots: s.snapshots.filter(snap => snap.id !== id),
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
         })),
 
       // === DATA ===
@@ -161,7 +185,7 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       },
 
       importData: (data) =>
-        set({ ...data, lastUpdated: new Date().toISOString() }),
+        set({ ...data, lastUpdated: nowIso() }),
 
       clearData: () =>
         set({
@@ -169,17 +193,40 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
           investments: [],
           transactions: [],
           snapshots: [],
-          lastUpdated: new Date().toISOString(),
+          lastUpdated: nowIso(),
+          syncStatus: 'idle',
+          lastSyncedAt: null,
+          syncError: null,
         }),
 
       syncWithBackend: async (userId: string) => {
+        if (!userId) return false
+
         const { config, investments, transactions, snapshots } = get()
-        return await rentabilidadApi.sync(userId, { config, investments, transactions, snapshots })
+        set({ syncStatus: 'saving', syncError: null })
+
+        try {
+          const saved = await rentabilidadApi.sync(userId, { config, investments, transactions, snapshots })
+          const syncedAt = nowIso()
+          set({ syncStatus: 'saved', lastSyncedAt: syncedAt, syncError: null })
+          return Boolean(saved)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'No se pudo sincronizar la calculadora.'
+          set({ syncStatus: 'error', syncError: message })
+          throw error
+        }
       },
     }),
     {
       name: 'mia-rentabilidad',
       storage: createJSONStorage(() => localStorage),
+      partialize: (state) => ({
+        config: state.config,
+        investments: state.investments,
+        transactions: state.transactions,
+        snapshots: state.snapshots,
+        lastUpdated: state.lastUpdated,
+      }),
       merge: (persistedState: any, currentState) => ({
         ...currentState,
         ...persistedState,

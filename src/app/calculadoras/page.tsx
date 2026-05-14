@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function CalculadorasPage() {
   return (
     <>
-      <Navbar />
+      <Navbar variant="user" />
       <main className="pt-24 pb-16 min-h-screen bg-mia-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-12">
