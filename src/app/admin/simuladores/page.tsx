@@ -53,7 +53,7 @@ export default function AdminSimulatorsPage() {
       <div>
         <h2 className="font-heading text-3xl font-bold text-mia-cream">Configuración de simuladores</h2>
         <p className="max-w-2xl text-sm text-neutral">
-          Enciende/apaga herramientas, define si son gratuitas, demo, pagas o solo admin, y configura demos de 7 días.
+          Enciende/apaga herramientas, define si son gratuitas, demo, pagas o solo admin. “Pago” queda listo para cobro manual ahora y pasarela después.
         </p>
       </div>
 

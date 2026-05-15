@@ -27,6 +27,8 @@ type FormData = z.infer<typeof schema>
 
 interface Props {
   onClose: () => void
+  toolName?: string
+  contentName?: string
 }
 
 const benefits = [
@@ -101,7 +103,7 @@ function validatePassword(password?: string) {
   return null
 }
 
-export default function UserRegistrationModal({ onClose }: Props) {
+export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad' }: Props) {
   const { register, login, setInitialPassword } = useUserStore()
   const setBaseCurrency = useRentabilidadStore(s => s.setBaseCurrency)
   const [mounted, setMounted] = useState(false)
@@ -133,7 +135,7 @@ export default function UserRegistrationModal({ onClose }: Props) {
       
       if (step === 'email') {
         setIsValidatingEmail(true)
-        const entry = await userApi.validateEntry(data.email)
+        const entry = await userApi.validateEntry(data.email, toolName)
         setIsValidatingEmail(false)
         
         if (entry.requiresPasswordSetup) {
@@ -156,7 +158,7 @@ export default function UserRegistrationModal({ onClose }: Props) {
           return
         }
 
-        const success = await login(data.email, data.password || '')
+        const success = await login(data.email, data.password || '', toolName)
         if (!success) {
           setError('No pudimos iniciar sesión. Revisa tus credenciales.')
           return
@@ -199,7 +201,7 @@ export default function UserRegistrationModal({ onClose }: Props) {
           return
         }
 
-        const success = await setInitialPassword({ email: data.email, phone: fullPhone, password: data.password || '' })
+        const success = await setInitialPassword({ email: data.email, phone: fullPhone, password: data.password || '' }, toolName)
         if (!success) {
           setError('No pudimos crear tu contraseña. Revisa los datos.')
           return
@@ -255,7 +257,7 @@ export default function UserRegistrationModal({ onClose }: Props) {
       await register({ name, email: data.email, phone: fullPhone, baseCurrency: data.baseCurrency, password: data.password || '' })
       setBaseCurrency(data.baseCurrency)
       pushEvent('user_registered', { currency: data.baseCurrency, has_phone: true })
-      trackMetaEvent('Lead', { content_name: 'calculadora_rentabilidad' })
+      trackMetaEvent('Lead', { content_name: contentName })
       setStep('success')
       setTimeout(() => onClose(), 2000)
     } catch (err) {

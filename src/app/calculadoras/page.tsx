@@ -15,14 +15,17 @@ export default function CalculadorasPage() {
       <Navbar variant="user" />
       <main className="pt-24 pb-16 min-h-screen bg-mia-black">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h1 className="text-4xl sm:text-5xl font-heading font-bold text-mia-cream mb-4">
-              Calculadoras <span className="gradient-mf-text">MIA</span>
-            </h1>
-            <p className="text-lg text-neutral max-w-xl">
-              Herramientas profesionales para tomar decisiones financieras con claridad.
+          <section className="mx-auto mb-8 max-w-3xl text-center">
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.28em] text-mf-coral">
+              MIA by Moneyflow
             </p>
-          </div>
+            <h1 className="text-balance font-heading text-4xl font-bold leading-tight text-mia-cream sm:text-5xl lg:text-6xl">
+              Decide mejor con tu dinero
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-neutral sm:text-lg">
+              Elige un simulador, guarda tus respuestas en la nube y recibe claridad accionable sobre inversión, riesgo y retiro.
+            </p>
+          </section>
           <CalculatorCards />
         </div>
       </main>

@@ -96,6 +96,27 @@ export default function AdminUserDetailPage() {
     }
   }
 
+  const updateAccessType = async (access: UserAccess, accessType: SimulatorAccessType) => {
+    try {
+      const simulatorId = access.toolName || access.simulatorSlug || access.simulatorId || 'rentabilidad'
+      const expiresAt = accessType === 'demo'
+        ? access.expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        : null
+
+      await adminApi.grantAccess({
+        userId,
+        simulatorId,
+        accessType,
+        status: 'active',
+        expiresAt,
+        notes: `Tipo de acceso actualizado manualmente a ${accessType} desde admin.`,
+      })
+      await load()
+    } catch {
+      alert('No se pudo cambiar el tipo de acceso.')
+    }
+  }
+
   if (loading) return <div className="py-16 text-center text-neutral">Cargando usuario…</div>
 
   if (error || !user) {
@@ -185,7 +206,7 @@ export default function AdminUserDetailPage() {
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
             <h3 className="font-heading text-xl font-bold text-mia-cream">Accesos del usuario</h3>
-            <p className="text-sm text-neutral">Asigna demos de 7 días, acceso pago o revoca simuladores.</p>
+            <p className="text-sm text-neutral">Asigna, cambia o revoca accesos por calculadora. El acceso pago queda como pago manual hasta integrar pasarela.</p>
           </div>
         </div>
 
@@ -210,7 +231,7 @@ export default function AdminUserDetailPage() {
             <thead className="bg-mia-surface/50 text-xs uppercase text-neutral">
               <tr>
                 <th className="px-4 py-3 text-left">Simulador</th>
-                <th className="px-4 py-3 text-left">Tipo</th>
+                <th className="px-4 py-3 text-left">Tipo de acceso</th>
                 <th className="px-4 py-3 text-left">Estado</th>
                 <th className="px-4 py-3 text-left">Expira</th>
                 <th className="px-4 py-3 text-left">Acción</th>
@@ -220,7 +241,15 @@ export default function AdminUserDetailPage() {
               {(user.accesses || []).map(access => (
                 <tr key={access.id}>
                   <td className="px-4 py-4 text-mia-cream">{access.simulatorName || access.toolName || access.simulatorSlug || 'Simulador'}</td>
-                  <td className="px-4 py-4"><StatusBadge value={access.accessType} /></td>
+                  <td className="px-4 py-4">
+                    <select value={access.accessType} onChange={e => updateAccessType(access, e.target.value as SimulatorAccessType)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
+                      <option value="free">free</option>
+                      <option value="demo">demo</option>
+                      <option value="paid">paid</option>
+                      <option value="admin_only">admin_only</option>
+                    </select>
+                    {access.accessType === 'paid' && <p className="mt-1 text-[10px] text-neutral">Pago manual</p>}
+                  </td>
                   <td className="px-4 py-4"><StatusBadge value={access.status} /></td>
                   <td className="px-4 py-4 text-neutral">{access.expiresAt ? formatDate(access.expiresAt) : 'Sin expiración'}</td>
                   <td className="px-4 py-4">
@@ -319,6 +348,13 @@ function buildSimulatorSections(user: AdminUserDetail | null, simulators: Simula
     })
   })
 
+  ;(user.simulatorResponses || []).forEach(response => {
+    addSection(response.simulatorKey, {
+      data: response,
+      hasData: Boolean(response.input || response.result),
+    })
+  })
+
   if (user.rentabilidadData) {
     addSection('rentabilidad', {
       title: 'Calculadora de Rentabilidad',
@@ -336,12 +372,14 @@ function normalizeSimulatorSlug(value: string) {
 
 function getSimulatorTitle(slug: string) {
   if (slug === 'rentabilidad') return 'Calculadora de Rentabilidad'
-  return slug.replace(/[-_]/g, ' ').replace(/\w/g, char => char.toUpperCase())
+  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, char => char.toUpperCase())
 }
 
 function hasSimulatorData(data: any) {
   return Boolean(
     data?.config ||
+    data?.input ||
+    data?.result ||
     (Array.isArray(data?.investments) && data.investments.length > 0) ||
     (Array.isArray(data?.transactions) && data.transactions.length > 0) ||
     (Array.isArray(data?.snapshots) && data.snapshots.length > 0),
@@ -363,7 +401,45 @@ function CalculatorResponses({
   const investments = Array.isArray(data?.investments) ? data.investments : []
   const transactions = Array.isArray(data?.transactions) ? data.transactions : []
   const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : []
-  const hasResponses = investments.length > 0 || transactions.length > 0 || snapshots.length > 0 || Boolean(data?.config)
+  const isGenericResponse = Boolean(data?.simulatorKey || data?.input || data?.result) && slug !== 'rentabilidad'
+  const hasResponses = investments.length > 0 || transactions.length > 0 || snapshots.length > 0 || Boolean(data?.config) || Boolean(data?.input || data?.result)
+
+  if (isGenericResponse) {
+    return (
+      <section className="glass rounded-2xl border border-mia-border p-6">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <StatusBadge value={slug} />
+              {data?.status && <StatusBadge value={data.status} />}
+              {access?.status && <StatusBadge value={access.status} />}
+            </div>
+            <h3 className="font-heading text-2xl font-bold text-mia-cream">Respuestas y resultado</h3>
+            <p className="mt-1 text-sm text-neutral">{title}: información guardada por el simulador.</p>
+          </div>
+          <div className="rounded-xl border border-mia-border bg-mia-surface/40 px-4 py-3 text-xs text-neutral md:text-right">
+            <p>Última actualización</p>
+            <p className="font-semibold text-mia-cream">{data?.updatedAt ? formatRelativeTime(data.updatedAt) : 'Sin datos'}</p>
+            {data?.completedAt && <p className="mt-1">Completado: {formatDate(data.completedAt)}</p>}
+          </div>
+        </div>
+        {!hasResponses ? (
+          <div className="rounded-2xl border border-mia-border bg-mia-surface/30 p-8 text-center text-sm text-neutral">
+            Este usuario todavía no tiene respuestas guardadas para esta calculadora.
+          </div>
+        ) : slug === 'numero-dorado' ? (
+          <GoldenNumberAdminView data={data} />
+        ) : slug === 'perfil-riesgo' ? (
+          <RiskProfileAdminView data={data} />
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <JsonPreview title="Respuestas capturadas" value={data.input} />
+            <JsonPreview title="Resultado calculado" value={data.result} />
+          </div>
+        )}
+      </section>
+    )
+  }
 
   return (
     <section className="glass rounded-2xl border border-mia-border p-6">
@@ -443,6 +519,235 @@ function CalculatorResponses({
       )}
     </section>
   )
+}
+
+const RISK_PROFILE_QUESTIONS: Record<string, { label: string; options: Record<string, string> }> = {
+  q1: {
+    label: 'Horizonte de inversión',
+    options: {
+      under1: 'Menos de 1 año',
+      '1-5': 'Entre 1 y 5 años',
+      '5-10': 'Más de 5 años',
+    },
+  },
+  q2: {
+    label: 'Reacción si el mercado cae 20%',
+    options: {
+      low: 'Me preocuparía y vendería rápido',
+      medium: 'Mantendría la calma y esperaría',
+      high: 'Compraría más aprovechando la caída',
+    },
+  },
+  q3: {
+    label: 'Comodidad con productos que fluctúan',
+    options: {
+      low: 'Muy incómodo, prefiero estabilidad',
+      medium: 'Cómodo si tengo información clara',
+      high: 'Me gusta asumir riesgo calculado',
+    },
+  },
+  q4: {
+    label: 'Tiempo dedicado a investigar inversiones',
+    options: {
+      low: 'Poco, prefiero que alguien me guíe',
+      medium: 'Algunas horas para estar informado',
+      high: 'Bastante, quiero entender detalles',
+    },
+  },
+  q5: {
+    label: 'Reacción si una inversión cae 30%',
+    options: {
+      low: 'Vendo para evitar más pérdidas',
+      medium: 'Mantengo la estrategia',
+      high: 'Compro más si la tesis sigue vigente',
+    },
+  },
+}
+
+function RiskProfileAdminView({ data }: { data: any }) {
+  const inputAnswers = data?.input?.answers || data?.result?.answers || {}
+  const result = data?.result || {}
+  const level = result?.level || {}
+  const score = result?.scoreLabel || (result?.score ? `${result.score}/15` : '—')
+  const range = getRiskRange(level?.key)
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1fr_1.2fr]">
+        <div className="rounded-3xl border border-mf-coral/30 bg-gradient-to-br from-mf-coral/15 via-mia-surface/40 to-mia-surface p-6">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-mf-coral">Perfil del usuario</p>
+          <h4 className="mt-3 font-heading text-4xl font-black text-mia-cream">{level?.label || 'Sin perfil'}</h4>
+          <div className="mt-4 inline-flex rounded-full border border-mf-coral/30 bg-mf-coral/10 px-4 py-2 text-sm font-bold text-mf-coral">
+            Score: {score} {range !== '—' ? `· ${range}` : ''}
+          </div>
+          <p className="mt-5 text-sm leading-relaxed text-neutral">{level?.description || 'Sin recomendación guardada.'}</p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <AdminResultMetric label="Preguntas respondidas" value={`${result?.answered ?? 0}/${result?.totalQuestions ?? 5}`} />
+          <AdminResultMetric label="Nivel" value={level?.label || '—'} />
+          <AdminResultMetric label="Rango" value={range} />
+        </div>
+      </div>
+
+      <ReadableKeyValueTable
+        title="Respuestas del cuestionario"
+        entries={Object.entries(RISK_PROFILE_QUESTIONS).map(([key, question]) => [
+          question.label,
+          question.options[String(inputAnswers?.[key] || '')] || 'Sin respuesta',
+        ])}
+      />
+    </div>
+  )
+}
+
+function getRiskRange(key?: string) {
+  if (key === 'conservador') return '4.0 – 6.9%'
+  if (key === 'moderado') return '7.0 – 8.9%'
+  if (key === 'agresivo') return '9.0 – 13.9%'
+  if (key === 'arriesgado') return '≥ 14.0%'
+  return '—'
+}
+
+const GOLDEN_NUMBER_LABELS: Record<string, string> = {
+  age: 'Edad actual',
+  currency: 'Moneda',
+  retirementAge: 'Edad de retiro',
+  lifeExpectancy: 'Esperanza de vida',
+  desiredPostRetirementIncome: 'Ingreso anual deseado en retiro',
+  otherIncomeSources: 'Otros ingresos anuales esperados',
+  estimatedInflation: 'Inflación anual estimada',
+  expectedReturnRate: 'Rentabilidad esperada anual',
+  netReturn: 'Rentabilidad neta objetivo',
+  totalSavings: 'Ahorro actual',
+  monthlyLivingCost: 'Gasto mensual actual',
+  annualExpenses: 'Gastos anuales extra',
+  riskScore: 'Score/rentabilidad de referencia',
+}
+
+function GoldenNumberAdminView({ data }: { data: any }) {
+  const input = data?.input || data?.result?.input || {}
+  const result = data?.result || {}
+  const results = result?.results || {}
+  const assumptions = result?.assumptions || {}
+  const currency = input.currency || 'COP'
+  const goldenNumber = results.goldenNumber
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+        <div className="relative overflow-hidden rounded-3xl border border-[#D4AF37]/60 bg-[radial-gradient(circle_at_18%_8%,rgba(255,230,150,0.62),transparent_30%),linear-gradient(135deg,#fff8df_0%,#f7e6a4_40%,#c8942e_100%)] p-6 shadow-xl shadow-[#D4AF37]/15">
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/30 blur-3xl" />
+          <p className="relative text-xs font-black uppercase tracking-[0.28em] text-[#7A4E00]">Número Dorado del usuario</p>
+          <p className="relative mt-4 whitespace-nowrap font-sans text-[clamp(1.5rem,4vw,3.1rem)] font-black leading-none tracking-[-0.07em] text-[#201506] [font-variant-numeric:tabular-nums]">
+            {formatMoney(goldenNumber, currency)}
+          </p>
+          <p className="relative mt-4 max-w-xl text-sm font-medium leading-relaxed text-[#5F4A16]">
+            Capital objetivo estimado para sostener su retiro según las respuestas guardadas.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <AdminResultMetric label="Meta a valor presente" value={formatMoney(results.presentValueGoal, currency)} />
+          <AdminResultMetric label="Faltante estimado" value={formatMoney(results.fundsNeeded, currency)} />
+          <AdminResultMetric label="Ahorro mensual sugerido" value={formatMoney(results.monthlySavingsWithReturn, currency)} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ReadableKeyValueTable
+          title="Supuestos ingresados"
+          entries={Object.entries(input).map(([key, value]) => [GOLDEN_NUMBER_LABELS[key] || humanizeKey(key), formatGoldenValue(key, value, currency)])}
+        />
+        <ReadableKeyValueTable
+          title="Variables de cálculo"
+          entries={Object.entries(assumptions).map(([key, value]) => [humanizeKey(key), formatResponseValue(value)])}
+        />
+      </div>
+    </div>
+  )
+}
+
+function AdminResultMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-mia-border bg-mia-surface/30 p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-neutral">{label}</p>
+      <p className="mt-2 font-heading text-xl font-bold text-mia-cream">{value}</p>
+    </div>
+  )
+}
+
+function ReadableKeyValueTable({ title, entries }: { title: string; entries: Array<[string, string]> }) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-mia-border">
+      <div className="border-b border-mia-border bg-mia-surface/40 px-4 py-3">
+        <h4 className="font-heading text-sm font-bold text-mia-cream">{title}</h4>
+      </div>
+      <div className="divide-y divide-mia-border">
+        {entries.map(([label, value]) => (
+          <div key={label} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-[220px_1fr]">
+            <span className="font-semibold text-mia-cream">{label}</span>
+            <span className="break-words text-neutral">{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function formatMoney(value: unknown, currency = 'COP') {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return '—'
+  try {
+    return new Intl.NumberFormat('es-CO', { style: 'currency', currency, maximumFractionDigits: 0 }).format(numeric)
+  } catch {
+    return `${currency} ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(numeric)}`
+  }
+}
+
+function formatGoldenValue(key: string, value: unknown, currency: string) {
+  if (['desiredPostRetirementIncome', 'otherIncomeSources', 'totalSavings', 'monthlyLivingCost', 'annualExpenses'].includes(key)) {
+    return formatMoney(value, currency)
+  }
+  if (['estimatedInflation', 'expectedReturnRate', 'netReturn', 'riskScore'].includes(key)) {
+    return `${formatResponseValue(value)}%`
+  }
+  return formatResponseValue(value)
+}
+
+function humanizeKey(key: string) {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/[-_]/g, ' ')
+    .trim()
+    .replace(/^./, char => char.toUpperCase())
+}
+
+function JsonPreview({ title, value }: { title: string; value: unknown }) {
+  const entries = value && typeof value === 'object' ? Object.entries(value as Record<string, any>) : []
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-mia-border">
+      <div className="border-b border-mia-border bg-mia-surface/40 px-4 py-3">
+        <h4 className="font-heading text-sm font-bold text-mia-cream">{title}</h4>
+      </div>
+      <div className="divide-y divide-mia-border">
+        {entries.length === 0 && <p className="px-4 py-8 text-center text-sm text-neutral">Sin datos.</p>}
+        {entries.map(([key, raw]) => (
+          <div key={key} className="grid gap-2 px-4 py-3 text-sm md:grid-cols-[160px_1fr]">
+            <span className="font-semibold text-mia-cream">{key}</span>
+            <span className="break-words text-neutral">{formatResponseValue(raw)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function formatResponseValue(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  return String(value)
 }
 
 function ResponseMetric({ icon: Icon, label, value }: { icon: ElementType; label: string; value: string | number }) {

@@ -12,11 +12,18 @@ export default function Footer() {
           {/* Brand */}
           <div className="md:col-span-2">
             <Image
+              src="/logo-mf-negro.png"
+              alt="Moneyflow"
+              width={150}
+              height={40}
+              className="mb-4 h-8 w-auto dark:hidden"
+            />
+            <Image
               src="/logo-mf-blanco.png"
               alt="Moneyflow"
               width={150}
               height={40}
-              className="h-8 w-auto mb-4"
+              className="mb-4 hidden h-8 w-auto dark:block"
             />
             <p className="text-neutral text-sm leading-relaxed max-w-sm">
               MIA es la plataforma de inteligencia financiera de Moneyflow.

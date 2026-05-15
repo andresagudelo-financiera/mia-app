@@ -63,12 +63,99 @@ const LIST_MIA_USERS = gql`
         currencies
         updatedAt
       }
+      simulatorResponses {
+        id
+        userId
+        simulatorKey
+        input
+        result
+        status
+        completedAt
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`
+
+
+const LIST_MIA_USERS_LEGACY = gql`
+  query AdminMiaUsersLegacy($search: String) {
+    adminMiaUsers(search: $search) {
+      id
+      name
+      email
+      phone
+      baseCurrency
+      registeredAt
+      hasCompletedOnboarding
+      updatedAt
+      accesses {
+        id
+        toolName
+        status
+        accessType
+        expiresAt
+        usageCount
+      }
+      configs {
+        id
+        userId
+        pillars
+        entities
+        currencies
+        updatedAt
+      }
     }
   }
 `
 
 const GET_MIA_USER = gql`
   query AdminMiaUser($userId: String!) {
+    adminMiaUser(userId: $userId) {
+      id
+      name
+      email
+      phone
+      baseCurrency
+      registeredAt
+      hasCompletedOnboarding
+      updatedAt
+      accesses {
+        id
+        toolName
+        status
+        accessType
+        expiresAt
+        usageCount
+      }
+      configs {
+        id
+        userId
+        pillars
+        entities
+        currencies
+        updatedAt
+      }
+      simulatorResponses {
+        id
+        userId
+        simulatorKey
+        input
+        result
+        status
+        completedAt
+        createdAt
+        updatedAt
+      }
+      rentabilidadData
+    }
+  }
+`
+
+
+const GET_MIA_USER_LEGACY = gql`
+  query AdminMiaUserLegacy($userId: String!) {
     adminMiaUser(userId: $userId) {
       id
       name
@@ -247,8 +334,8 @@ const PUBLIC_SIMULATORS = gql`
 
 function mapSimulator(sim: any): Simulator {
   return {
-    id: sim.id,
-    slug: sim.key,
+    id: sim.id || sim.key || sim.slug,
+    slug: sim.key || sim.slug,
     name: sim.name,
     description: sim.description,
     status: sim.status as SimulatorStatus,
@@ -273,6 +360,15 @@ async function adminGraphQLRequest<TData>(query: string, variables?: Record<stri
   }
 
   return payload.data
+}
+
+function getSimulatorLabel(slug?: string) {
+  const labels: Record<string, string> = {
+    rentabilidad: 'Calculadora de Rentabilidad',
+    'perfil-riesgo': 'Perfil de Riesgo',
+    'numero-dorado': 'Número Dorado',
+  }
+  return labels[String(slug || '').toLowerCase()] || slug || 'Simulador'
 }
 
 function normalizeAccessType(accessType?: string): SimulatorAccessType {
@@ -300,7 +396,7 @@ function mapAccess(access: any, userId: string): UserAccess {
     userId,
     simulatorId: access.toolName,
     simulatorSlug: access.toolName,
-    simulatorName: access.toolName === 'rentabilidad' ? 'Calculadora de Rentabilidad' : access.toolName,
+    simulatorName: getSimulatorLabel(access.toolName),
     toolName: access.toolName,
     accessType: normalizeAccessType(access.accessType),
     status: normalizeAccessStatus(access.status, access.expiresAt),
@@ -337,6 +433,7 @@ function mapMiaUser(user: any): AdminUserSummary {
     lastSeenAt: user.updatedAt,
     hasCompletedOnboarding: Boolean(user.hasCompletedOnboarding),
     accesses,
+    simulatorResponses: Array.isArray(user.simulatorResponses) ? user.simulatorResponses : [],
     investmentCount: Array.isArray(user.rentabilidadData?.investments) ? user.rentabilidadData.investments.length : 0,
     transactionCount: Array.isArray(user.rentabilidadData?.transactions) ? user.rentabilidadData.transactions.length : 0,
     snapshotCount: Array.isArray(user.rentabilidadData?.snapshots) ? user.rentabilidadData.snapshots.length : 0,
@@ -382,15 +479,25 @@ export const adminApi = {
   },
 
   async listUsers(filters?: { search?: string; status?: string; role?: string }) {
-    const response = await adminGraphQLRequest<{ adminMiaUsers: any[] }>(LIST_MIA_USERS, {
-      search: filters?.search || undefined,
-    })
-    return (response.adminMiaUsers || []).map(mapMiaUser) as AdminUserSummary[]
+    const variables = { search: filters?.search || undefined }
+
+    try {
+      const response = await adminGraphQLRequest<{ adminMiaUsers: any[] }>(LIST_MIA_USERS, variables)
+      return (response.adminMiaUsers || []).map(mapMiaUser) as AdminUserSummary[]
+    } catch (error) {
+      const response = await adminGraphQLRequest<{ adminMiaUsers: any[] }>(LIST_MIA_USERS_LEGACY, variables)
+      return (response.adminMiaUsers || []).map(mapMiaUser) as AdminUserSummary[]
+    }
   },
 
   async getUserDetail(id: string) {
-    const response = await adminGraphQLRequest<{ adminMiaUser: any | null }>(GET_MIA_USER, { userId: id })
-    return response.adminMiaUser ? (mapMiaUser(response.adminMiaUser) as AdminUserDetail) : null
+    try {
+      const response = await adminGraphQLRequest<{ adminMiaUser: any | null }>(GET_MIA_USER, { userId: id })
+      return response.adminMiaUser ? (mapMiaUser(response.adminMiaUser) as AdminUserDetail) : null
+    } catch (error) {
+      const response = await adminGraphQLRequest<{ adminMiaUser: any | null }>(GET_MIA_USER_LEGACY, { userId: id })
+      return response.adminMiaUser ? (mapMiaUser(response.adminMiaUser) as AdminUserDetail) : null
+    }
   },
 
   async createUser(input: { email: string; name?: string; phone?: string; baseCurrency?: string }) {
@@ -421,8 +528,12 @@ export const adminApi = {
   },
 
   async listSimulators() {
-    const response = await adminGraphQLRequest<{ adminSimulators: any[] }>(ADMIN_SIMULATORS)
-    return (response.adminSimulators || []).map(mapSimulator)
+    try {
+      const response = await adminGraphQLRequest<{ adminSimulators: any[] }>(ADMIN_SIMULATORS)
+      return (response.adminSimulators || []).map(mapSimulator)
+    } catch (error) {
+      return adminApi.listPublicSimulators()
+    }
   },
 
   async updateSimulator(
@@ -439,8 +550,14 @@ export const adminApi = {
   },
 
   async listPublicSimulators() {
-    const response = await apiClient.request<{ simulators: any[] }>(PUBLIC_SIMULATORS)
-    return (response.simulators || []).map(mapSimulator)
+    const response = await fetch('/api/simulators', { cache: 'no-store' })
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No se pudo cargar el catálogo de simuladores.')
+    }
+
+    return (payload?.simulators || []).map(mapSimulator)
   },
 
   async grantAccess(input: {

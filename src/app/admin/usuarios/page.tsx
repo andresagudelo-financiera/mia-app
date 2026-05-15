@@ -5,13 +5,20 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
-import type { AdminUserDetail, AdminUserSummary, UserRole, UserStatus } from '@/types/rentabilidad'
+import type { AdminUserDetail, AdminUserSummary, Simulator, SimulatorAccessType, UserRole, UserStatus } from '@/types/rentabilidad'
 import StatusBadge from '@/components/admin/StatusBadge'
 import { formatDate, formatRelativeTime } from '@/lib/formatters'
 import AdminCreateUserModal from '@/components/admin/AdminCreateUserModal'
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUserSummary[]>([])
+  const [simulators, setSimulators] = useState<Simulator[]>([])
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
+  const [selectedSimulatorSlugs, setSelectedSimulatorSlugs] = useState<string[]>([])
+  const [bulkAction, setBulkAction] = useState<'grant' | 'revoke'>('grant')
+  const [bulkAccessType, setBulkAccessType] = useState<SimulatorAccessType>('free')
+  const [bulkDays, setBulkDays] = useState(7)
+  const [bulkProcessing, setBulkProcessing] = useState(false)
   const [search, setSearch] = useState('')
   const [role, setRole] = useState<UserRole | 'all'>('all')
   const [status, setStatus] = useState<UserStatus | 'all'>('all')
@@ -26,9 +33,13 @@ export default function AdminUsersPage() {
     async function load() {
       try {
         setLoading(true)
-        const data = await adminApi.listUsers({ search: search.trim() || undefined, role, status })
+        const [data, sims] = await Promise.all([
+          adminApi.listUsers({ search: search.trim() || undefined, role, status }),
+          adminApi.listSimulators(),
+        ])
         if (!active) return
         setUsers(data || [])
+        setSimulators(sims || [])
         setError(null)
       } catch {
         if (active) setError('No se pudieron cargar los usuarios adminUsers desde GraphQL.')
@@ -40,7 +51,7 @@ export default function AdminUsersPage() {
     return () => { active = false; clearTimeout(timer) }
   }, [search, role, status])
 
-  const simulatorOptions = useMemo(() => getSimulatorOptions(users), [users])
+  const simulatorOptions = useMemo(() => getSimulatorOptions(users, simulators), [users, simulators])
 
   const filteredUsers = useMemo(() => (
     users.filter(user => {
@@ -108,6 +119,72 @@ export default function AdminUsersPage() {
     } catch {
       setUsers(previous)
       alert('No se pudo actualizar el estado del usuario.')
+    }
+  }
+
+  const selectedFilteredUserIds = useMemo(
+    () => filteredUsers.filter(user => selectedUserIds.includes(user.id)).map(user => user.id),
+    [filteredUsers, selectedUserIds],
+  )
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(current => current.includes(userId)
+      ? current.filter(id => id !== userId)
+      : [...current, userId])
+  }
+
+  const toggleAllFilteredUsers = () => {
+    const filteredIds = filteredUsers.map(user => user.id)
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedUserIds.includes(id))
+    setSelectedUserIds(current => allSelected
+      ? current.filter(id => !filteredIds.includes(id))
+      : Array.from(new Set([...current, ...filteredIds])))
+  }
+
+  const toggleSimulatorSelection = (slug: string) => {
+    setSelectedSimulatorSlugs(current => current.includes(slug)
+      ? current.filter(item => item !== slug)
+      : [...current, slug])
+  }
+
+  const applyBulkAccess = async () => {
+    if (selectedUserIds.length === 0 || selectedSimulatorSlugs.length === 0) {
+      alert('Selecciona al menos un usuario y una calculadora.')
+      return
+    }
+
+    const confirmMessage = bulkAction === 'grant'
+      ? `¿Dar acceso a ${selectedUserIds.length} usuario(s) para ${selectedSimulatorSlugs.length} calculadora(s)?`
+      : `¿Quitar acceso a ${selectedUserIds.length} usuario(s) para ${selectedSimulatorSlugs.length} calculadora(s)?`
+
+    if (!window.confirm(confirmMessage)) return
+
+    try {
+      setBulkProcessing(true)
+      if (bulkAction === 'grant') {
+        const expiresAt = bulkAccessType === 'demo'
+          ? new Date(Date.now() + bulkDays * 24 * 60 * 60 * 1000).toISOString()
+          : null
+
+        await Promise.all(selectedUserIds.flatMap(userId => selectedSimulatorSlugs.map(simulatorSlug => adminApi.grantAccess({
+          userId,
+          simulatorId: simulatorSlug,
+          accessType: bulkAccessType,
+          status: 'active',
+          expiresAt,
+          notes: `Acceso ${bulkAccessType} asignado en lote desde admin.`,
+        }))))
+      } else {
+        await Promise.all(selectedUserIds.flatMap(userId => selectedSimulatorSlugs.map(simulatorSlug => adminApi.revokeAccess(userId, simulatorSlug))))
+      }
+
+      const refreshed = await adminApi.listUsers({ search: search.trim() || undefined, role, status })
+      setUsers(refreshed || [])
+      setSelectedUserIds([])
+    } catch (error) {
+      alert('No se pudo actualizar el acceso en lote.')
+    } finally {
+      setBulkProcessing(false)
     }
   }
 
@@ -213,6 +290,70 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      <div className="glass rounded-2xl border border-mia-border p-4">
+        <div className="mb-4 flex flex-col gap-1">
+          <h3 className="font-heading text-lg font-bold text-mia-cream">Accesos por usuario y calculadora</h3>
+          <p className="text-xs text-neutral">
+            Selecciona uno o varios usuarios, una o varias calculadoras, y activa o desactiva accesos en lote.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+          <div>
+            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral">Calculadoras</p>
+            <div className="flex flex-wrap gap-2">
+              {simulatorOptions.map(option => {
+                const selected = selectedSimulatorSlugs.includes(option.slug)
+                return (
+                  <button
+                    key={option.slug}
+                    type="button"
+                    onClick={() => toggleSimulatorSelection(option.slug)}
+                    className={`rounded-full border px-3 py-2 text-xs font-bold transition ${selected ? 'border-mf-coral bg-mf-coral/15 text-mf-coral' : 'border-mia-border bg-mia-surface text-neutral hover:border-mf-coral/50'}`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label>
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">Acción</span>
+              <select value={bulkAction} onChange={event => setBulkAction(event.target.value as 'grant' | 'revoke')} className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral">
+                <option value="grant">Dar acceso</option>
+                <option value="revoke">Quitar acceso</option>
+              </select>
+            </label>
+            <label>
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">Tipo</span>
+              <select value={bulkAccessType} onChange={event => setBulkAccessType(event.target.value as SimulatorAccessType)} disabled={bulkAction === 'revoke'} className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral disabled:opacity-50">
+                <option value="free">Free</option>
+                <option value="demo">Demo</option>
+                <option value="paid">Pago</option>
+              </select>
+            </label>
+            <label>
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">Días demo</span>
+              <input value={bulkDays} onChange={event => setBulkDays(Number(event.target.value) || 1)} type="number" min="1" disabled={bulkAction === 'revoke' || bulkAccessType !== 'demo'} className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral disabled:opacity-50" />
+            </label>
+          </div>
+
+          <div className="flex flex-col justify-end gap-2">
+            <p className="text-xs text-neutral">{selectedUserIds.length} usuario(s) seleccionado(s)</p>
+            <button
+              type="button"
+              onClick={applyBulkAccess}
+              disabled={bulkProcessing || selectedUserIds.length === 0 || selectedSimulatorSlugs.length === 0}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {bulkProcessing && <Loader2 className="h-4 w-4 animate-spin" />}
+              Aplicar accesos
+            </button>
+          </div>
+        </div>
+      </div>
+
       {error && <div className="rounded-2xl border border-mf-orange/30 bg-mf-orange/10 p-4 text-sm text-mf-orange">{error}</div>}
 
       <div className="glass overflow-hidden rounded-2xl border border-mia-border">
@@ -220,6 +361,9 @@ export default function AdminUsersPage() {
           <table className="w-full text-sm">
             <thead className="bg-mia-surface/60 text-xs uppercase tracking-wider text-neutral">
               <tr>
+                <th className="px-4 py-3 text-left">
+                  <input type="checkbox" checked={filteredUsers.length > 0 && filteredUsers.every(user => selectedUserIds.includes(user.id))} onChange={toggleAllFilteredUsers} aria-label="Seleccionar usuarios visibles" />
+                </th>
                 <th className="px-4 py-3 text-left">Usuario</th>
                 <th className="px-4 py-3 text-left">Rol</th>
                 <th className="px-4 py-3 text-left">Estado</th>
@@ -232,6 +376,9 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-mia-border">
               {filteredUsers.map(user => (
                 <tr key={user.id} className="hover:bg-mia-surface/30">
+                  <td className="px-4 py-4">
+                    <input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleUserSelection(user.id)} aria-label={`Seleccionar ${user.email}`} />
+                  </td>
                   <td className="px-4 py-4">
                     <Link href={`/admin/usuarios/${user.id}`} className="font-semibold text-mia-cream hover:text-mf-coral">{user.name}</Link>
                     <p className="text-xs text-neutral">{user.email}</p>
@@ -259,7 +406,7 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-4 text-neutral">
-                    <div className="mb-2 flex max-w-xs flex-wrap gap-1.5">
+                    <div className="mb-3 flex max-w-xs flex-wrap gap-1.5">
                       {getUserSimulatorBadges(user).map(simulator => (
                         <span key={simulator.slug} className="rounded-full border border-mf-coral/30 bg-mf-coral/10 px-2 py-1 text-[10px] font-semibold text-mf-coral">
                           {simulator.label}
@@ -267,9 +414,7 @@ export default function AdminUsersPage() {
                       ))}
                       {getUserSimulatorBadges(user).length === 0 && <span className="text-xs text-neutral/70">Sin simuladores</span>}
                     </div>
-                    <p>{user.investmentCount || 0} inversiones</p>
-                    <p>{user.transactionCount || 0} flujos · {user.snapshotCount || 0} cortes</p>
-                    <p>{user.pdfDownloadCount || 0} PDFs</p>
+                    <SimulatorUsageSummary user={user} />
                   </td>
                   <td className="px-4 py-4 text-neutral">{user.registeredAt ? formatDate(user.registeredAt) : '—'}</td>
                   <td className="px-4 py-4 text-neutral">{user.lastSeenAt ? formatRelativeTime(user.lastSeenAt) : '—'}</td>
@@ -282,10 +427,10 @@ export default function AdminUsersPage() {
                 </tr>
               ))}
               {!loading && filteredUsers.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral">No hay usuarios con esos filtros.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-neutral">No hay usuarios con esos filtros.</td></tr>
               )}
               {loading && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral">Cargando usuarios…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-12 text-center text-neutral">Cargando usuarios…</td></tr>
               )}
             </tbody>
           </table>
@@ -479,8 +624,36 @@ type SimulatorOption = {
   label: string
 }
 
-function getSimulatorOptions(users: AdminUserSummary[]): SimulatorOption[] {
+function SimulatorUsageSummary({ user }: { user: AdminUserSummary }) {
+  const investments = user.investmentCount || 0
+  const flows = user.transactionCount || 0
+  const cuts = user.snapshotCount || 0
+  const genericResponses = user.simulatorResponses?.filter(response => response.simulatorKey !== 'rentabilidad').length || 0
+  const hasRentabilidadActivity = investments > 0 || flows > 0 || cuts > 0
+
+  if (!hasRentabilidadActivity && genericResponses === 0) {
+    return <p className="text-xs text-neutral/70">Sin actividad guardada todavía.</p>
+  }
+
+  return (
+    <div className="space-y-1 text-xs text-neutral">
+      {hasRentabilidadActivity && (
+        <div>
+          <p className="font-semibold text-mia-cream/80">Actividad en Rentabilidad</p>
+          <p>{investments} inversiones registradas</p>
+          <p>{flows} entradas/salidas · {cuts} cortes de valor</p>
+        </div>
+      )}
+      {genericResponses > 0 && (
+        <p>{genericResponses} respuesta{genericResponses === 1 ? '' : 's'} guardada{genericResponses === 1 ? '' : 's'} en otros simuladores</p>
+      )}
+    </div>
+  )
+}
+
+function getSimulatorOptions(users: AdminUserSummary[], simulators: Simulator[] = []): SimulatorOption[] {
   const options = new Map<string, string>()
+  simulators.forEach(simulator => options.set(normalizeSimulatorSlug(simulator.slug || simulator.id), simulator.name))
   users.forEach(user => {
     getUserSimulatorBadges(user).forEach(simulator => options.set(simulator.slug, simulator.label))
   })
@@ -496,6 +669,11 @@ function getUserSimulatorBadges(user: AdminUserSummary): SimulatorOption[] {
     const slug = normalizeSimulatorSlug(access.toolName || access.simulatorSlug || access.simulatorId || '')
     if (!slug) return
     options.set(slug, access.simulatorName || getSimulatorLabel(slug))
+  })
+
+  ;(user.simulatorResponses || []).forEach(response => {
+    const slug = normalizeSimulatorSlug(response.simulatorKey)
+    if (slug) options.set(slug, getSimulatorLabel(slug))
   })
 
   if ((user as AdminUserDetail).rentabilidadData || (user.investmentCount || 0) > 0 || (user.transactionCount || 0) > 0 || (user.snapshotCount || 0) > 0) {

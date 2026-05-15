@@ -163,12 +163,25 @@ export type UsageEvent = {
   createdAt: string
 }
 
+export type GenericSimulatorResponse = {
+  id: string
+  userId: string
+  simulatorKey: string
+  input?: unknown
+  result?: unknown
+  status: string
+  completedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type AdminUserSummary = UserProfile & {
   investmentCount?: number
   transactionCount?: number
   snapshotCount?: number
   pdfDownloadCount?: number
   lastSimulatorUsed?: string
+  simulatorResponses?: GenericSimulatorResponse[]
 }
 
 export type AdminUserDetail = AdminUserSummary & {

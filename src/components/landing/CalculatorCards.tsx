@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, TrendingUp, Lock, Calculator } from 'lucide-react'
+import { ArrowRight, TrendingUp, Lock, Calculator, ShieldCheck, Gem } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
+import { mergeSimulatorCatalog } from '@/lib/simulator-catalog'
 import type { Simulator } from '@/types/rentabilidad'
 
 const UI_METADATA: Record<string, any> = {
@@ -13,6 +14,18 @@ const UI_METADATA: Record<string, any> = {
     iconBg: 'bg-mf-coral/10',
     iconColor: 'text-mf-coral',
   },
+  'perfil-riesgo': {
+    icon: ShieldCheck,
+    accentClass: 'border-gain/40 hover:border-gain',
+    iconBg: 'bg-gain/10',
+    iconColor: 'text-gain',
+  },
+  'numero-dorado': {
+    icon: Gem,
+    accentClass: 'border-mf-orange/40 hover:border-mf-orange',
+    iconBg: 'bg-mf-orange/10',
+    iconColor: 'text-mf-orange',
+  },
   default: {
     icon: Calculator,
     accentClass: 'border-mia-border',
@@ -20,22 +33,6 @@ const UI_METADATA: Record<string, any> = {
     iconColor: 'text-neutral',
   },
 }
-
-// Keep hardcoded placeholders for future tools if they aren't in the DB yet
-const PLACEHOLDERS = [
-  {
-    key: 'interes-compuesto',
-    name: 'Calculadora de Interés Compuesto',
-    description: 'Simula el crecimiento de tus ahorros con aportaciones periódicas y tasa de interés.',
-    status: 'coming_soon',
-  },
-  {
-    key: 'fire',
-    name: 'Calculadora FIRE',
-    description: 'Calcula cuánto necesitas para alcanzar tu independencia financiera.',
-    status: 'coming_soon',
-  },
-]
 
 export default function CalculatorCards() {
   const [simulators, setSimulators] = useState<Simulator[]>([])
@@ -45,23 +42,9 @@ export default function CalculatorCards() {
     const load = async () => {
       try {
         const data = await adminApi.listPublicSimulators()
-        // Merge with placeholders for tools not yet in DB
-        const all = [...data]
-        PLACEHOLDERS.forEach(p => {
-          if (!all.find(s => s.slug === p.key)) {
-            all.push({
-              id: p.key,
-              slug: p.key,
-              name: p.name,
-              description: p.description,
-              status: p.status as any,
-              accessType: 'free',
-            })
-          }
-        })
-        setSimulators(all)
-      } catch (error) {
-        console.error('Error loading simulators:', error)
+        setSimulators(mergeSimulatorCatalog(data))
+      } catch {
+        setSimulators(mergeSimulatorCatalog([]))
       } finally {
         setLoading(false)
       }
@@ -79,23 +62,19 @@ export default function CalculatorCards() {
   }
 
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-      <div className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-4xl sm:text-5xl font-heading font-bold mb-4">
-          Herramientas <span className="gradient-mf-text">disponibles</span>
-        </h2>
-        <p className="text-lg text-neutral max-w-xl mx-auto">
-          Lead magnets financieros diseñados para darte claridad inmediata sobre tu dinero.
-        </p>
-      </div>
-
+    <section className="px-0 py-8 sm:py-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {simulators.map((sim) => {
           const ui = UI_METADATA[sim.slug] || UI_METADATA.default
           const Icon = ui.icon
           const isActive = sim.status === 'active'
           const isComingSoon = sim.status === 'coming_soon' || sim.status === 'disabled'
-          const href = sim.slug === 'rentabilidad' ? '/calculadoras/rentabilidad' : '#'
+          const hrefBySlug: Record<string, string> = {
+            rentabilidad: '/calculadoras/rentabilidad',
+            'perfil-riesgo': '/calculadoras/perfil-riesgo',
+            'numero-dorado': '/calculadoras/numero-dorado',
+          }
+          const href = hrefBySlug[sim.slug] || '#'
 
           return (
             <div

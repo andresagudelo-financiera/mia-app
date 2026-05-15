@@ -9,8 +9,8 @@ interface UserStore {
   profile: UserProfile | null
   isRegistered: boolean
   register: (data: RegisterInput) => Promise<void>
-  login: (email: string, password: string) => Promise<boolean>
-  setInitialPassword: (data: { email: string; phone: string; password: string }) => Promise<boolean>
+  login: (email: string, password: string, toolName?: string) => Promise<boolean>
+  setInitialPassword: (data: { email: string; phone: string; password: string }, toolName?: string) => Promise<boolean>
   refreshProfile: () => Promise<UserProfile | null>
   updateProfile: (updates: Partial<Omit<UserProfile, 'id' | 'registeredAt'>>) => void
   clearProfile: () => void
@@ -29,16 +29,16 @@ export const useUserStore = create<UserStore>()(
         }
       },
 
-      login: async (email, password) => {
-        const entry = await userApi.login(email, password);
+      login: async (email, password, toolName = 'rentabilidad') => {
+        const entry = await userApi.login(email, password, toolName);
         const profile = entry.user;
         if (!profile) return false;
         set({ profile, isRegistered: true });
         return true;
       },
 
-      setInitialPassword: async (data) => {
-        const entry = await userApi.setInitialPassword(data);
+      setInitialPassword: async (data, toolName = 'rentabilidad') => {
+        const entry = await userApi.setInitialPassword(data, toolName);
         const profile = entry.user;
         if (!profile) return false;
         set({ profile, isRegistered: true });
