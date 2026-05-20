@@ -40,6 +40,20 @@ const SAVE_GOLDEN_NUMBER = `
   }
 `
 
+const CALCULATE_ANTI_DEBT = `
+  query CalculateAntiDebtSimulator($simulatorKey: String!, $input: JSONObject!) {
+    calculateAntiDebtSimulator(simulatorKey: $simulatorKey, input: $input)
+  }
+`
+
+const SAVE_ANTI_DEBT = `
+  mutation SaveAntiDebtSimulator($userId: String!, $simulatorKey: String!, $input: JSONObject!) {
+    saveAntiDebtSimulator(userId: $userId, simulatorKey: $simulatorKey, input: $input) {
+      ${RESPONSE_FIELDS}
+    }
+  }
+`
+
 type GraphQLPayload<T> = {
   data?: T
   errors?: Array<{ message?: string }>
@@ -68,8 +82,9 @@ export async function POST(request: Request) {
   const action = String(body?.action || '')
   const userId = String(body?.userId || '')
   const input = body?.input ?? {}
+  const simulatorKey = String(body?.simulatorKey || '')
 
-  if (!userId) {
+  if (!userId && action !== 'calculateAntiDebtSimulator') {
     return NextResponse.json({ error: 'userId es requerido.' }, { status: 400 })
   }
 
@@ -83,6 +98,20 @@ export async function POST(request: Request) {
     const payload = await proxyGraphQL<{ saveGoldenNumber: unknown }>(SAVE_GOLDEN_NUMBER, { userId, input })
     if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
     return NextResponse.json({ simulatorResponse: payload.data?.saveGoldenNumber })
+  }
+
+  if (action === 'calculateAntiDebtSimulator') {
+    if (!simulatorKey) return NextResponse.json({ error: 'simulatorKey es requerido.' }, { status: 400 })
+    const payload = await proxyGraphQL<{ calculateAntiDebtSimulator: unknown }>(CALCULATE_ANTI_DEBT, { simulatorKey, input })
+    if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
+    return NextResponse.json({ result: payload.data?.calculateAntiDebtSimulator })
+  }
+
+  if (action === 'saveAntiDebtSimulator') {
+    if (!simulatorKey) return NextResponse.json({ error: 'simulatorKey es requerido.' }, { status: 400 })
+    const payload = await proxyGraphQL<{ saveAntiDebtSimulator: unknown }>(SAVE_ANTI_DEBT, { userId, simulatorKey, input })
+    if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
+    return NextResponse.json({ simulatorResponse: payload.data?.saveAntiDebtSimulator })
   }
 
   return NextResponse.json({ error: 'Acción no soportada.' }, { status: 400 })

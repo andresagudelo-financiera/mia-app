@@ -12,6 +12,7 @@ export type SimulatorResponse = {
 
 type SimulatorApiPayload = {
   simulatorResponse?: SimulatorResponse | null
+  result?: any
   error?: string
 }
 
@@ -62,6 +63,32 @@ export const simulatorsApi = {
 
     if (!payload.simulatorResponse) {
       throw new Error('No se pudo guardar el número dorado.')
+    }
+
+    return payload.simulatorResponse
+  },
+
+  async calculateAntiDebtSimulator(simulatorKey: string, input: unknown) {
+    const payload = await requestSimulatorResponse('/api/simulators/response', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'calculateAntiDebtSimulator', simulatorKey, input }),
+    })
+
+    if (!payload.result) {
+      throw new Error('No se pudo calcular el simulador anti-deuda.')
+    }
+
+    return payload.result
+  },
+
+  async saveAntiDebtSimulator(userId: string, simulatorKey: string, input: unknown) {
+    const payload = await requestSimulatorResponse('/api/simulators/response', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveAntiDebtSimulator', userId, simulatorKey, input }),
+    })
+
+    if (!payload.simulatorResponse) {
+      throw new Error('No se pudo guardar el simulador anti-deuda.')
     }
 
     return payload.simulatorResponse

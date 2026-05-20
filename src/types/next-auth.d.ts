@@ -5,6 +5,7 @@ declare module 'next-auth' {
   interface Session {
     adminToken?: string
     adminTokenExpiresAt?: string
+    error?: 'AdminTokenExpired'
     user?: {
       id?: string
       name?: string | null
@@ -20,6 +21,7 @@ declare module 'next-auth' {
     isActive?: boolean
     adminToken?: string
     adminTokenExpiresAt?: string
+    error?: 'AdminTokenExpired'
   }
 }
 
@@ -29,5 +31,6 @@ declare module 'next-auth/jwt' {
     isActive?: boolean
     adminToken?: string
     adminTokenExpiresAt?: string
+    error?: 'AdminTokenExpired'
   }
 }

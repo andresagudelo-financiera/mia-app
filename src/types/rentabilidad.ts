@@ -99,6 +99,7 @@ export type AnalyticsEvent =
   | 'snapshot_added'
   | 'results_viewed'
   | 'pdf_downloaded'
+  | 'calculator_shared'
   | 'user_registered'
   | 'user_password_created'
   | 'user_login'
@@ -187,4 +188,239 @@ export type AdminUserSummary = UserProfile & {
 export type AdminUserDetail = AdminUserSummary & {
   usageEvents?: UsageEvent[]
   rentabilidadData?: RentabilidadStoreData | null
+}
+
+// ============================================================
+// Challenges / Retos
+// ============================================================
+
+export type ChallengeStep = {
+  id: string
+  challengeKey: string
+  simulatorKey: string
+  title: string
+  description?: string | null
+  stepOrder: number
+  status: string
+  unlockRule: 'always' | 'complete_previous' | 'complete_specific_simulator' | 'date_based' | 'manual_unlock' | string
+  unlocksAt?: string | null
+  requiredSimulatorKey?: string | null
+  requiredStatus?: string | null
+  isUnlocked: boolean
+  isCompleted: boolean
+  lockedReason?: string | null
+  availableAt?: string | null
+  simulator?: any
+  metadata?: any
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ChallengeProgress = {
+  id?: string | null
+  userId?: string | null
+  challengeKey: string
+  currentStep: number
+  completedSteps: string[]
+  unlockedSteps: string[]
+  progressPercent: number
+  completedCount: number
+  totalSteps: number
+  status: 'not_started' | 'in_progress' | 'completed' | string
+  startedAt?: string | null
+  completedAt?: string | null
+  lastActivityAt?: string | null
+}
+
+export type Challenge = {
+  id: string
+  key: string
+  name: string
+  description?: string | null
+  status: string
+  accessType: SimulatorAccessType | string
+  startsAt?: string | null
+  endsAt?: string | null
+  metadata?: any
+  steps: ChallengeStep[]
+  progress: ChallengeProgress
+  stats?: ChallengeStats | null
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type ChallengeStats = {
+  challengeKey: string
+  startedUsers: number
+  completedUsers: number
+  completionRate: number
+  stepCompletions: Array<{ simulatorKey: string; total: number }>
+  eventsByName: Array<{ eventName: string; total: number }>
+}
+
+// ============================================================
+// Academy / Plataforma de estudio
+// ============================================================
+
+export type AcademyAccessState = {
+  hasAccess: boolean
+  reason: string
+  accessType?: string | null
+  expiresAt?: string | null
+  lockedMessage?: string | null
+}
+
+export type AcademyCourseProgress = {
+  enrollmentId?: string | null
+  status: string
+  progressPercent: number
+  completedLessons: number
+  totalLessons: number
+  startedAt?: string | null
+  completedAt?: string | null
+  lastActivityAt?: string | null
+}
+
+export type AcademyLessonProgress = {
+  id?: string | null
+  status: string
+  progressPercent: number
+  lastPositionSeconds: number
+  startedAt?: string | null
+  completedAt?: string | null
+  lastActivityAt?: string | null
+}
+
+export type AcademyLessonResource = {
+  id: string
+  lessonId: string
+  title: string
+  resourceType: string
+  url: string
+  resourceOrder: number
+  metadata?: any
+}
+
+export type AcademyLesson = {
+  id: string
+  courseId: string
+  moduleId: string
+  slug: string
+  title: string
+  description?: string | null
+  lessonType: string
+  lessonOrder: number
+  status: string
+  accessType: string
+  isDemo: boolean
+  isLive: boolean
+  videoProvider?: string | null
+  youtubeVideoId?: string | null
+  youtubeUrl?: string | null
+  embedUrl?: string | null
+  liveStartsAt?: string | null
+  liveEndsAt?: string | null
+  replayAvailable: boolean
+  durationSeconds?: number | null
+  linkedSimulatorKey?: string | null
+  linkedChallengeKey?: string | null
+  isUnlocked: boolean
+  lockedReason?: string | null
+  progress: AcademyLessonProgress
+  resources: AcademyLessonResource[]
+  metadata?: any
+  createdAt: string
+  updatedAt: string
+}
+
+export type AcademyModuleItem = {
+  id: string
+  courseId: string
+  title: string
+  description?: string | null
+  moduleOrder: number
+  status: string
+  unlockRule: string
+  unlocksAt?: string | null
+  isUnlocked: boolean
+  lockedReason?: string | null
+  lessons: AcademyLesson[]
+  metadata?: any
+  createdAt: string
+  updatedAt: string
+}
+
+export type AcademyCourse = {
+  id: string
+  key: string
+  slug: string
+  title: string
+  description?: string | null
+  status: string
+  accessType: string
+  level?: string | null
+  coverImageUrl?: string | null
+  estimatedMinutes?: number | null
+  publishedAt?: string | null
+  access: AcademyAccessState
+  progress: AcademyCourseProgress
+  modules: AcademyModuleItem[]
+  metadata?: any
+  createdAt: string
+  updatedAt: string
+}
+
+export type AcademyQuizQuestion = {
+  id: string
+  quizId: string
+  questionText: string
+  questionType: string
+  options: string[]
+  questionOrder: number
+  points: number
+  explanation?: any
+}
+
+export type AcademyQuiz = {
+  id: string
+  courseId: string
+  lessonId: string
+  title: string
+  description?: string | null
+  passingScore: number
+  maxAttempts: number
+  questions: AcademyQuizQuestion[]
+}
+
+export type AcademyQuizAttempt = {
+  id: string
+  quizId: string
+  userId: string
+  score: number
+  passed: boolean
+  answers: Record<string, string>
+  feedback?: any
+  createdAt: string
+}
+
+export type AcademyCertificate = {
+  id: string
+  userId: string
+  subjectType: string
+  subjectKey: string
+  title: string
+  verificationCode: string
+  issuedAt: string
+}
+
+export type AcademyLearningPath = {
+  id: string
+  key: string
+  slug: string
+  title: string
+  description?: string | null
+  status: string
+  accessType: string
+  courses: Array<{ courseKey: string; courseOrder: number; title?: string | null; isCompleted: boolean }>
+  certificate?: AcademyCertificate | null
 }

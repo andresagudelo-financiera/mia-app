@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { signIn, useSession } from 'next-auth/react'
+import { signIn, signOut, useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { LogIn, ShieldAlert } from 'lucide-react'
 
@@ -11,6 +11,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const { data: session, status } = useSession()
   const [loginError, setLoginError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSigningOutExpiredSession, setIsSigningOutExpiredSession] = useState(false)
 
   const callbackUrl = searchParams.get('callbackUrl') || '/admin'
   const nextAuthError = searchParams.get('error')
@@ -20,11 +21,30 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     session?.user?.role === 'admin' &&
     session.user.isActive === true
 
+
+
   useEffect(() => {
+    if (status !== 'authenticated') return
+
+    const expiresAt = session?.adminTokenExpiresAt ? new Date(session.adminTokenExpiresAt).getTime() : null
+    const expiredByTime = expiresAt !== null && Number.isFinite(expiresAt) && expiresAt <= Date.now()
+
+    if (session?.error === 'AdminTokenExpired' || expiredByTime) {
+      setIsSigningOutExpiredSession(true)
+      void signOut({ callbackUrl: '/admin?expired=1' })
+    }
+  }, [session?.adminTokenExpiresAt, session?.error, status])
+
+  useEffect(() => {
+    if (searchParams.get('expired') === '1') {
+      setLoginError('Tu sesión expiró. Vuelve a iniciar sesión para continuar.')
+      return
+    }
+
     if (nextAuthError) {
       setLoginError('Credenciales inválidas o usuario sin permisos de administrador.')
     }
-  }, [nextAuthError])
+  }, [nextAuthError, searchParams])
 
   const login = async (email: string, password: string) => {
     const normalizedEmail = email.trim().toLowerCase()
@@ -58,6 +78,16 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (isSigningOutExpiredSession) {
+    return (
+      <div className="min-h-screen bg-mia-black pt-16 flex items-center justify-center px-4">
+        <div className="glass rounded-3xl border border-mf-coral/30 px-8 py-6 text-center text-neutral">
+          Tu sesión expiró. Cerrando sesión...
+        </div>
+      </div>
+    )
   }
 
   if (isAuthenticatedAdmin) {

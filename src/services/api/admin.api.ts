@@ -1,4 +1,5 @@
 import { gql } from 'graphql-request'
+import { signOut } from 'next-auth/react'
 import { apiClient } from './client'
 import type {
   AdminUserDetail,
@@ -9,6 +10,8 @@ import type {
   UserAccess,
   UserAccessStatus,
   UserStatus,
+  Challenge,
+  ChallengeStats,
 } from '@/types/rentabilidad'
 
 export type SystemAdminUser = {
@@ -21,7 +24,7 @@ export type SystemAdminUser = {
 
 type AdminGraphQLResponse<TData> = {
   data?: TData
-  errors?: Array<{ message?: string }>
+  errors?: Array<{ message?: string; code?: string }>
 }
 
 const ADMIN_ME = gql`
@@ -318,6 +321,98 @@ const ADMIN_UPDATE_SIMULATOR = gql`
   }
 `
 
+
+const CHALLENGE_FIELDS = gql`
+  fragment ChallengeFields on Challenge {
+    id
+    key
+    name
+    description
+    status
+    accessType
+    startsAt
+    endsAt
+    metadata
+    createdAt
+    updatedAt
+    stats
+    progress {
+      challengeKey
+      currentStep
+      completedSteps
+      unlockedSteps
+      progressPercent
+      completedCount
+      totalSteps
+      status
+      startedAt
+      completedAt
+      lastActivityAt
+    }
+    steps {
+      id
+      challengeKey
+      simulatorKey
+      title
+      description
+      stepOrder
+      status
+      unlockRule
+      unlocksAt
+      requiredSimulatorKey
+      requiredStatus
+      isUnlocked
+      isCompleted
+      lockedReason
+      availableAt
+      simulator
+      metadata
+      createdAt
+      updatedAt
+    }
+  }
+`
+
+const ADMIN_CHALLENGES = gql`
+  ${CHALLENGE_FIELDS}
+  query AdminChallenges {
+    adminChallenges {
+      ...ChallengeFields
+    }
+  }
+`
+
+const ADMIN_CHALLENGE_STATS = gql`
+  query AdminChallengeStats($challengeKey: String!) {
+    adminChallengeStats(challengeKey: $challengeKey) {
+      challengeKey
+      startedUsers
+      completedUsers
+      completionRate
+      stepCompletions
+      eventsByName
+    }
+  }
+`
+
+const ADMIN_UPDATE_CHALLENGE = gql`
+  ${CHALLENGE_FIELDS}
+  mutation AdminUpdateChallenge($key: String!, $status: String, $accessType: String, $startsAt: String, $endsAt: String, $metadata: JSON) {
+    adminUpdateChallenge(key: $key, status: $status, accessType: $accessType, startsAt: $startsAt, endsAt: $endsAt, metadata: $metadata) {
+      ...ChallengeFields
+    }
+  }
+`
+
+const ADMIN_UPDATE_CHALLENGE_STEP = gql`
+  ${CHALLENGE_FIELDS}
+  mutation AdminUpdateChallengeStep($id: String!, $status: String, $unlockRule: String, $unlocksAt: String, $requiredSimulatorKey: String, $requiredStatus: String, $metadata: JSON) {
+    adminUpdateChallengeStep(id: $id, status: $status, unlockRule: $unlockRule, unlocksAt: $unlocksAt, requiredSimulatorKey: $requiredSimulatorKey, requiredStatus: $requiredStatus, metadata: $metadata) {
+      ...ChallengeFields
+    }
+  }
+`
+
 const PUBLIC_SIMULATORS = gql`
   query PublicSimulators {
     simulators {
@@ -356,7 +451,18 @@ async function adminGraphQLRequest<TData>(query: string, variables?: Record<stri
   const payload = (await response.json().catch(() => null)) as AdminGraphQLResponse<TData> | null
 
   if (!response.ok || payload?.errors?.length || !payload?.data) {
-    throw new Error(payload?.errors?.[0]?.message || `No se pudo consultar el admin API (${response.status})`)
+    const firstError = payload?.errors?.[0]
+    const isExpired = response.status === 401 && (
+      firstError?.code === 'ADMIN_TOKEN_EXPIRED' ||
+      String(firstError?.message || '').toLowerCase().includes('token admin expirado') ||
+      String(firstError?.message || '').toLowerCase().includes('token expirado')
+    )
+
+    if (isExpired && typeof window !== 'undefined') {
+      void signOut({ callbackUrl: '/admin?expired=1' })
+    }
+
+    throw new Error(firstError?.message || `No se pudo consultar el admin API (${response.status})`)
   }
 
   return payload.data
@@ -547,6 +653,34 @@ export const adminApi = {
       demoDays: input.demoDays,
     })
     return mapSimulator(response.adminUpdateSimulator)
+  },
+
+
+
+  async listChallenges() {
+    const response = await adminGraphQLRequest<{ adminChallenges: Challenge[] }>(ADMIN_CHALLENGES)
+    return response.adminChallenges || []
+  },
+
+  async getChallengeStats(challengeKey: string) {
+    const response = await adminGraphQLRequest<{ adminChallengeStats: ChallengeStats }>(ADMIN_CHALLENGE_STATS, { challengeKey })
+    return response.adminChallengeStats
+  },
+
+  async updateChallenge(key: string, input: { status?: string; accessType?: string; startsAt?: string | null; endsAt?: string | null; metadata?: any }) {
+    const response = await adminGraphQLRequest<{ adminUpdateChallenge: Challenge }>(ADMIN_UPDATE_CHALLENGE, {
+      key,
+      ...input,
+    })
+    return response.adminUpdateChallenge
+  },
+
+  async updateChallengeStep(id: string, input: { status?: string; unlockRule?: string; unlocksAt?: string | null; requiredSimulatorKey?: string | null; requiredStatus?: string | null; metadata?: any }) {
+    const response = await adminGraphQLRequest<{ adminUpdateChallengeStep: Challenge }>(ADMIN_UPDATE_CHALLENGE_STEP, {
+      id,
+      ...input,
+    })
+    return response.adminUpdateChallengeStep
   },
 
   async listPublicSimulators() {

@@ -2,6 +2,20 @@ import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { loginMiaAdmin } from '@/lib/mia-admin-client'
 
+function isAdminTokenExpired(expiresAt?: unknown) {
+  if (!expiresAt) return false
+  const expiresAtMs = new Date(String(expiresAt)).getTime()
+  return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()
+}
+
+function clearExpiredAdminToken(token: any) {
+  delete token.role
+  delete token.isActive
+  delete token.adminToken
+  token.error = 'AdminTokenExpired'
+  return token
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages: {
@@ -46,10 +60,18 @@ export const authOptions: NextAuthOptions = {
         token.isActive = user.isActive
         token.adminToken = user.adminToken
         token.adminTokenExpiresAt = user.adminTokenExpiresAt
+        delete token.error
       }
+
+      if (isAdminTokenExpired(token.adminTokenExpiresAt)) {
+        return clearExpiredAdminToken(token)
+      }
+
       return token
     },
     async session({ session, token }) {
+      session.adminTokenExpiresAt = typeof token.adminTokenExpiresAt === 'string' ? token.adminTokenExpiresAt : undefined
+      session.error = token.error
       session.user = {
         ...session.user,
         id: String(token.sub || ''),

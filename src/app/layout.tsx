@@ -27,7 +27,7 @@ const roboto = Roboto({
 export const metadata: Metadata = {
   title: {
     default: 'MIA | Tu inteligencia financiera en un solo lugar',
-    template: '%s | MIA by Moneyflow',
+    template: '%s | Moneyflow by MIA',
   },
   description:
     'MIA es la plataforma de educación e inteligencia financiera de Moneyflow. Calcula la rentabilidad de tus inversiones con herramientas profesionales, gratuitas.',
@@ -44,15 +44,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'es_CO',
-    url: 'https://mia.moneyflow.co',
-    siteName: 'MIA by Moneyflow',
+    url: 'https://vortex.financieramentecu.co/',
+    siteName: 'Moneyflow by MIA',
     title: 'MIA | Tu inteligencia financiera en un solo lugar',
     description: 'Calcula la rentabilidad real de tus inversiones en COP y USD, incluyendo TIR.',
     images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'MIA Platform' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'MIA by Moneyflow',
+    title: 'Moneyflow by MIA',
     description: 'Tu inteligencia financiera en un solo lugar.',
   },
 }

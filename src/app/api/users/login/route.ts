@@ -24,6 +24,16 @@ const LOGIN_USER = `
   }
 `
 
+const FREE_ENTRY_TOOLS = new Set([
+  'reto-anti-deuda',
+  'diagnostico-emocional-deuda',
+  'diagnostico-financiero-deuda',
+  'plan-pago-deuda',
+  'analiza-tu-deuda',
+  'perfil-riesgo',
+  'numero-dorado',
+])
+
 type AccessSummary = {
   toolName: string
   status: 'active' | 'expired' | 'revoked' | 'missing'
@@ -32,11 +42,13 @@ type AccessSummary = {
 }
 
 export async function POST(request: Request) {
+  let requestedToolName = 'rentabilidad'
   try {
     const body = await request.json().catch(() => null)
     const email = String(body?.email || '').trim().toLowerCase()
     const password = String(body?.password || '')
     const toolName = String(body?.toolName || 'rentabilidad').trim().toLowerCase()
+    requestedToolName = toolName
 
     if (!email || !email.includes('@')) {
       return NextResponse.json({ exists: false, user: null, access: buildMissingAccess(toolName), error: 'Email inválido.' }, { status: 400 })
@@ -82,7 +94,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('User login failed:', error)
     return NextResponse.json(
-      { exists: false, user: null, access: buildMissingAccess('rentabilidad'), error: 'No se pudo iniciar sesión.' },
+      { exists: false, user: null, access: buildMissingAccess(requestedToolName), error: 'No se pudo iniciar sesión.' },
       { status: 500 },
     )
   }
@@ -92,7 +104,7 @@ function summarizeToolAccess(user: any, toolName: string): AccessSummary {
   if (!user) return buildMissingAccess(toolName)
 
   const access = (user.accesses || []).find((item: any) => String(item?.toolName || '').toLowerCase() === toolName)
-  if (!access) return buildMissingAccess(toolName)
+  if (!access) return buildDefaultAccess(toolName)
 
   const expiresAt = access.expiresAt ?? null
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -109,6 +121,14 @@ function summarizeToolAccess(user: any, toolName: string): AccessSummary {
   }
 
   return { toolName, status: 'revoked', hasAccess: false, expiresAt }
+}
+
+function buildDefaultAccess(toolName: string): AccessSummary {
+  if (FREE_ENTRY_TOOLS.has(toolName)) {
+    return { toolName, status: 'active', hasAccess: true, expiresAt: null }
+  }
+
+  return buildMissingAccess(toolName)
 }
 
 function buildMissingAccess(toolName: string): AccessSummary {

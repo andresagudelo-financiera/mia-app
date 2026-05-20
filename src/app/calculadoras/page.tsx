@@ -1,12 +1,11 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import Navbar from '@/components/landing/Navbar'
 import Footer from '@/components/landing/Footer'
-import CalculatorCards from '@/components/landing/CalculatorCards'
+import CalculatorDirectory from '@/components/landing/CalculatorDirectory'
 
 export const metadata: Metadata = {
   title: 'Calculadoras',
-  description: 'Herramientas financieras gratuitas de MIA by Moneyflow.',
+  description: 'Herramientas financieras gratuitas de Moneyflow by MIA.',
 }
 
 export default function CalculadorasPage() {
@@ -17,7 +16,7 @@ export default function CalculadorasPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <section className="mx-auto mb-8 max-w-3xl text-center">
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.28em] text-mf-coral">
-              MIA by Moneyflow
+              Moneyflow by MIA
             </p>
             <h1 className="text-balance font-heading text-4xl font-bold leading-tight text-mia-cream sm:text-5xl lg:text-6xl">
               Decide mejor con tu dinero
@@ -26,7 +25,8 @@ export default function CalculadorasPage() {
               Elige un simulador, guarda tus respuestas en la nube y recibe claridad accionable sobre inversión, riesgo y retiro.
             </p>
           </section>
-          <CalculatorCards />
+
+          <CalculatorDirectory />
         </div>
       </main>
       <Footer />

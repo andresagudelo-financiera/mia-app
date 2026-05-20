@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BarChart3, Calculator, LayoutDashboard, UserCircle, Users } from 'lucide-react'
+import { BarChart3, BookOpen, Calculator, LayoutDashboard, Trophy, UserCircle, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const links = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
   { href: '/admin/usuarios', label: 'Usuarios', icon: Users },
   { href: '/admin/simuladores', label: 'Simuladores', icon: Calculator },
+  { href: '/admin/retos', label: 'Retos', icon: Trophy },
+  { href: '/admin/academia', label: 'Academia', icon: BookOpen },
   { href: '/admin/perfil', label: 'Mi perfil', icon: UserCircle },
 ]
 

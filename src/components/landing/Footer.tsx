@@ -1,7 +1,6 @@
 'use client'
 
 import Image from 'next/image'
-import Link from 'next/link'
 import { Instagram, ExternalLink } from 'lucide-react'
 
 export default function Footer() {
@@ -26,7 +25,7 @@ export default function Footer() {
               className="mb-4 hidden h-8 w-auto dark:block"
             />
             <p className="text-neutral text-sm leading-relaxed max-w-sm">
-              MIA es la plataforma de inteligencia financiera de Moneyflow.
+              Moneyflow by MIA es la plataforma de inteligencia financiera.
               Herramientas gratuitas para que midas, entiendas y hagas crecer tus inversiones.
             </p>
             <p className="text-xs text-neutral/60 mt-4 leading-relaxed">
@@ -41,13 +40,13 @@ export default function Footer() {
               {[
                 { label: 'Inicio', href: '/' },
                 { label: 'Calculadoras', href: '/calculadoras' },
-                { label: 'Calculadora de Rentabilidad', href: '/calculadoras/rentabilidad' },
+                { label: 'Academia', href: '/academia' },
                 { label: 'Mi perfil', href: '/perfil' },
               ].map(link => (
                 <li key={link.href}>
-                  <Link href={link.href} className="text-sm text-neutral hover:text-mia-cream transition-colors">
+                  <a href={link.href} className="text-sm text-neutral hover:text-mia-cream transition-colors">
                     {link.label}
-                  </Link>
+                  </a>
                 </li>
               ))}
             </ul>
@@ -55,34 +54,45 @@ export default function Footer() {
 
           {/* Social */}
           <div>
-            <h4 className="text-sm font-semibold text-mia-cream mb-4">Moneyflow</h4>
+            <h4 className="text-sm font-semibold text-mia-cream mb-4">Enlaces</h4>
             <ul className="space-y-3">
               <li>
                 <a
-                  href="https://instagram.com/we.are.mia"
+                  href="https://www.instagram.com/estaempresaesmia/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-neutral hover:text-mia-cream transition-colors"
                 >
                   <Instagram className="w-4 h-4" />
-                  @we.are.mia
+                  @estaempresaesmia
                 </a>
               </li>
               <li>
                 <a
-                  href="https://moneyflow.co"
+                  href="https://financieramentecompany.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-neutral hover:text-mia-cream transition-colors"
                 >
                   <ExternalLink className="w-4 h-4" />
-                  moneyflow.co
+                  Asesoría gratuita
                 </a>
               </li>
               <li>
-                <Link href="/privacidad" className="text-sm text-neutral hover:text-mia-cream transition-colors">
+                <a
+                  href="https://vortex.financieramentecu.co/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm text-neutral hover:text-mia-cream transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  App Financieramente
+                </a>
+              </li>
+              <li>
+                <a href="/privacidad" className="text-sm text-neutral hover:text-mia-cream transition-colors">
                   Política de privacidad
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -91,7 +101,7 @@ export default function Footer() {
         {/* Bottom */}
         <div className="border-t border-mia-border mt-12 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-neutral/60">
-            © 2026 MIA · Moneyflow. Todos los derechos reservados.
+            © 2026 Moneyflow by MIA. Todos los derechos reservados.
           </p>
           <p className="text-xs text-neutral/40">
             Generado por MIA Platform v1
