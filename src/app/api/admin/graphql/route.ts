@@ -9,11 +9,21 @@ type AdminGraphQLBody = {
   variables?: Record<string, unknown>
 }
 
+function isAdminTokenExpired(expiresAt?: unknown) {
+  if (!expiresAt) return false
+  const expiresAtMs = new Date(String(expiresAt)).getTime()
+  return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now()
+}
+
 export async function POST(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET })
 
+  if (isAdminTokenExpired(token?.adminTokenExpiresAt)) {
+    return NextResponse.json({ errors: [{ message: 'Token admin expirado.', code: 'ADMIN_TOKEN_EXPIRED' }] }, { status: 401 })
+  }
+
   if (token?.role !== 'admin' || token.isActive !== true || !token.adminToken) {
-    return NextResponse.json({ errors: [{ message: 'No autorizado' }] }, { status: 401 })
+    return NextResponse.json({ errors: [{ message: 'No autorizado', code: 'UNAUTHORIZED' }] }, { status: 401 })
   }
 
   const body = (await request.json().catch(() => null)) as AdminGraphQLBody | null
@@ -27,6 +37,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ data })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Error consultando MIA API'
-    return NextResponse.json({ errors: [{ message }] }, { status: 502 })
+    const isExpired = message.toLowerCase().includes('token admin expirado') || message.toLowerCase().includes('token expirado')
+
+    return NextResponse.json(
+      { errors: [{ message, code: isExpired ? 'ADMIN_TOKEN_EXPIRED' : 'MIA_API_ERROR' }] },
+      { status: isExpired ? 401 : 502 },
+    )
   }
 }

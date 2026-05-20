@@ -98,7 +98,7 @@ export default function PDFDownloadButton({
         style={{ position: 'absolute', top: '-9999px', left: '-9999px', width: '800px', backgroundColor: '#0A0A0A', color: 'white', fontFamily: 'sans-serif' }}
       >
         <div style={{ backgroundColor: '#F04E37', padding: '24px 32px' }}>
-          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: 'white' }}>Reporte de Rentabilidad · MIA by Moneyflow</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0, color: 'white' }}>Reporte de Rentabilidad · Moneyflow by MIA</h1>
           <p style={{ fontSize: '14px', margin: '4px 0 0 0', opacity: 0.9 }}>{userName}</p>
           <p style={{ fontSize: '12px', margin: '2px 0 0 0', opacity: 0.8 }}>Generado el {format(new Date(generatedAt), 'dd/MM/yyyy')}</p>
         </div>
@@ -217,8 +217,8 @@ export default function PDFDownloadButton({
         </div>
 
         <div style={{ borderTop: '1px solid #333', margin: '40px 32px 24px 32px', paddingTop: '16px', display: 'flex', justifyContent: 'space-between', color: '#A1A1AA', fontSize: '12px' }}>
-          <span>moneyflow.co · @we.are.mia</span>
-          <span>MIA Platform v1</span>
+          <span>financieramentecompany.com · @estaempresaesmia</span>
+          <span>Moneyflow by MIA</span>
         </div>
       </div>
     </>

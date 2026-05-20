@@ -1,5 +1,3 @@
-import { gql } from 'graphql-request';
-import { apiClient, handleApiError } from './client';
 import type {
   SimulatorAccessType,
   UserAccess,
@@ -20,50 +18,6 @@ export type UserEntryValidation = {
     expiresAt?: string | null;
   };
 };
-
-const REGISTER_USER = gql`
-  mutation RegisterUser($name: String!, $email: String!, $phone: String, $baseCurrency: String, $password: String!) {
-    registerUser(name: $name, email: $email, phone: $phone, baseCurrency: $baseCurrency, password: $password) {
-      id
-      name
-      email
-      phone
-      baseCurrency
-      registeredAt
-      hasCompletedOnboarding
-      accesses {
-        id
-        toolName
-        status
-        accessType
-        expiresAt
-        usageCount
-      }
-    }
-  }
-`;
-
-const GET_USER = gql`
-  query GetUser($email: String!) {
-    user(email: $email) {
-      id
-      name
-      email
-      phone
-      baseCurrency
-      registeredAt
-      hasCompletedOnboarding
-      accesses {
-        id
-        toolName
-        status
-        accessType
-        expiresAt
-        usageCount
-      }
-    }
-  }
-`;
 
 function normalizeAccessStatus(status?: string | null, expiresAt?: string | null): UserAccessStatus {
   if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
@@ -195,22 +149,20 @@ export const userApi = {
     };
   },
 
-  async register(data: { name: string; email: string; phone?: string; baseCurrency?: string; password: string }) {
-    try {
-      const response: any = await apiClient.request(REGISTER_USER, data);
-      const registeredUser = normalizeUser(response.registerUser);
+  async register(data: { name: string; email: string; phone?: string; baseCurrency?: string; password: string }, toolName = 'rentabilidad') {
+    const response = await fetch('/api/users/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, toolName }),
+      cache: 'no-store',
+    });
 
-      // El backend crea el acceso demo después de crear el usuario. Refrescamos
-      // inmediatamente para traer la suscripción real y evitar permisos locales obsoletos.
-      if (registeredUser?.email) {
-        const refreshed = await userApi.getUser(registeredUser.email);
-        return refreshed ?? registeredUser;
-      }
-
-      return registeredUser;
-    } catch (error) {
-      return handleApiError(error);
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No se pudo crear la cuenta.');
     }
+
+    return normalizeUser(payload?.user);
   },
 
   async setInitialPassword(
@@ -244,11 +196,12 @@ export const userApi = {
   },
 
   async getUser(email: string) {
-    try {
-      const response: any = await apiClient.request(GET_USER, { email });
-      return normalizeUser(response.user);
-    } catch (error) {
-      return handleApiError(error);
+    const params = new URLSearchParams({ email });
+    const response = await fetch(`/api/users/get?${params.toString()}`, { cache: 'no-store' });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No se pudo consultar el usuario.');
     }
+    return normalizeUser(payload?.user);
   }
 };

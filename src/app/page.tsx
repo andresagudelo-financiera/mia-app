@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import WhatIsMIA from '@/components/landing/WhatIsMIA'
-import CalculatorCards from '@/components/landing/CalculatorCards'
 import Footer from '@/components/landing/Footer'
 
 export const metadata: Metadata = {
@@ -17,7 +16,6 @@ export default function HomePage() {
       <Navbar variant="home" />
       <Hero />
       <WhatIsMIA />
-      <CalculatorCards />
       <Footer />
     </main>
   )

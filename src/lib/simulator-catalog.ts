@@ -26,6 +26,38 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
     status: 'active',
     accessType: 'free',
   },
+  {
+    id: 'diagnostico-emocional-deuda',
+    slug: 'diagnostico-emocional-deuda',
+    name: 'Diagnóstico emocional de deuda',
+    description: 'Descubre tu arquetipo de deuda, riesgo de recaída y primera acción anti-deuda.',
+    status: 'active',
+    accessType: 'free',
+  },
+  {
+    id: 'diagnostico-financiero-deuda',
+    slug: 'diagnostico-financiero-deuda',
+    name: 'Diagnóstico financiero de deuda',
+    description: 'Calcula carga de deuda, liquidez, semáforo financiero y mejor método de pago.',
+    status: 'active',
+    accessType: 'free',
+  },
+  {
+    id: 'plan-pago-deuda',
+    slug: 'plan-pago-deuda',
+    name: 'Plan de pago de deuda',
+    description: 'Compara bola de nieve y avalancha para estimar fecha de libertad financiera.',
+    status: 'active',
+    accessType: 'free',
+  },
+  {
+    id: 'analiza-tu-deuda',
+    slug: 'analiza-tu-deuda',
+    name: 'Analiza tu deuda',
+    description: 'Simula abonos, tasa y plazo para decidir si pagar, reestructurar o invertir.',
+    status: 'active',
+    accessType: 'free',
+  },
 ]
 
 export const PLACEHOLDER_SIMULATORS: Simulator[] = [

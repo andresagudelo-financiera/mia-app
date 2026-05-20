@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, TrendingUp } from 'lucide-react'
+import { ArrowRight, BookOpen, Calculator, TrendingUp } from 'lucide-react'
 import { pushEvent } from '@/lib/analytics'
 
 export default function Hero() {
@@ -52,25 +52,26 @@ export default function Hero() {
             Calcula la rentabilidad real de tu portafolio en COP y USD, con TIR incluida.
           </p>
 
-          {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          {/* CTA */}
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/calculadoras/rentabilidad"
-              id="hero-cta-primary"
-              onClick={() => pushEvent('cta_hero_click', { cta: 'primary' })}
-              className="group inline-flex items-center gap-3 bg-gradient-mf text-white font-bold text-base px-8 py-4 rounded-xl hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-mf-coral/30"
+              href="/academia"
+              id="hero-cta-academia"
+              onClick={() => pushEvent('cta_hero_click', { cta: 'academia_cursos' })}
+              className="group inline-flex w-full items-center justify-center gap-3 bg-gradient-mf text-white font-bold text-base px-8 py-4 rounded-xl hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-mf-coral/30 sm:w-auto"
             >
-              Calcular mi rentabilidad
+              <BookOpen className="w-5 h-5" />
+              Acceder a cursos
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
-
             <Link
               href="/calculadoras"
-              id="hero-cta-secondary"
-              onClick={() => pushEvent('cta_hero_click', { cta: 'secondary' })}
-              className="inline-flex items-center gap-2 glass text-mia-cream font-semibold text-base px-8 py-4 rounded-xl hover:border-mia-blue/40 transition-all duration-300"
+              id="hero-cta-primary"
+              onClick={() => pushEvent('cta_hero_click', { cta: 'calculadoras_disponibles' })}
+              className="group inline-flex w-full items-center justify-center gap-3 rounded-xl border border-mia-border bg-mia-card/60 px-8 py-4 text-base font-bold text-mia-cream backdrop-blur transition-all duration-300 hover:scale-105 hover:border-mf-coral/50 hover:bg-mf-coral/10 sm:w-auto"
             >
-              Ver todas las herramientas
+              <Calculator className="w-5 h-5 text-mf-coral" />
+              Ver calculadoras
             </Link>
           </div>
 

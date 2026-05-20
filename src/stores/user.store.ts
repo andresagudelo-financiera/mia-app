@@ -8,7 +8,7 @@ import { userApi } from '@/services/api/user.api'
 interface UserStore {
   profile: UserProfile | null
   isRegistered: boolean
-  register: (data: RegisterInput) => Promise<void>
+  register: (data: RegisterInput, toolName?: string) => Promise<void>
   login: (email: string, password: string, toolName?: string) => Promise<boolean>
   setInitialPassword: (data: { email: string; phone: string; password: string }, toolName?: string) => Promise<boolean>
   refreshProfile: () => Promise<UserProfile | null>
@@ -22,8 +22,8 @@ export const useUserStore = create<UserStore>()(
       profile: null,
       isRegistered: false,
 
-      register: async (data) => {
-        const profile = await userApi.register(data);
+      register: async (data, toolName = 'rentabilidad') => {
+        const profile = await userApi.register(data, toolName);
         if (profile) {
           set({ profile, isRegistered: true });
         }

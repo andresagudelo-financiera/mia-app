@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2, Loader2, MessageCircle, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from 'lucide-react'
 import UserRegistrationModal from '@/components/auth/UserRegistrationModal'
+import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
 import { simulatorsApi } from '@/services/api/simulators.api'
 import { useUserStore } from '@/stores/user.store'
 import { pushEvent, trackMetaEvent } from '@/lib/analytics'
@@ -169,17 +170,16 @@ export default function PerfilRiesgoSimulator() {
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-neutral">{result.level?.description}</p>
             </div>
           )}
-        </section>
 
-        <a
-          href="https://wa.me/573205389740?text=Hola%20Moneyflow%2C%20quiero%20analizar%20mi%20perfil%20de%20riesgo%20con%20un%20Money%20Strategist."
-          target="_blank"
-          rel="noopener noreferrer"
-          className="fixed bottom-4 left-4 right-4 z-50 inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-mf px-5 py-4 text-sm font-bold text-white shadow-2xl shadow-mf-coral/30 transition hover:opacity-90 sm:left-auto sm:right-6 sm:w-auto sm:px-6"
-        >
-          <MessageCircle className="h-5 w-5" />
-          Agendar con Money Strategist
-        </a>
+          <SimulatorActionBar
+            title="Perfil de Riesgo"
+            description="Resultado de tolerancia al riesgo para orientar decisiones de inversión."
+            result={result}
+            fileBaseName="perfil-riesgo"
+            advisorMessage="Hola Moneyflow, quiero agendar una asesoría para analizar mi perfil de riesgo con un Money Strategist."
+            shareMessage="Calculé mi perfil de riesgo con Moneyflow para tomar mejores decisiones de inversión."
+          />
+        </section>
       </div>
     </main>
   )

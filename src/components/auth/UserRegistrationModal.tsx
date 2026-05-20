@@ -29,6 +29,8 @@ interface Props {
   onClose: () => void
   toolName?: string
   contentName?: string
+  backHref?: string
+  backLabel?: string
 }
 
 const benefits = [
@@ -103,7 +105,7 @@ function validatePassword(password?: string) {
   return null
 }
 
-export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad' }: Props) {
+export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad', backHref = '/calculadoras', backLabel = 'Volver' }: Props) {
   const { register, login, setInitialPassword } = useUserStore()
   const setBaseCurrency = useRentabilidadStore(s => s.setBaseCurrency)
   const [mounted, setMounted] = useState(false)
@@ -152,9 +154,8 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
       }
 
       if (step === 'login') {
-        const passwordError = validatePassword(data.password)
-        if (passwordError) {
-          setFieldError('password', { message: passwordError })
+        if (!data.password) {
+          setFieldError('password', { message: 'Ingresa tu contraseña.' })
           return
         }
 
@@ -254,7 +255,7 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
         return
       }
 
-      await register({ name, email: data.email, phone: fullPhone, baseCurrency: data.baseCurrency, password: data.password || '' })
+      await register({ name, email: data.email, phone: fullPhone, baseCurrency: data.baseCurrency, password: data.password || '' }, toolName)
       setBaseCurrency(data.baseCurrency)
       pushEvent('user_registered', { currency: data.baseCurrency, has_phone: true })
       trackMetaEvent('Lead', { content_name: contentName })
@@ -278,12 +279,12 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
       <div className="absolute inset-0 bg-mia-black/95 backdrop-blur-md" />
 
       <Link
-        href="/calculadoras"
+        href={backHref}
         className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-mia-border bg-mia-card/90 px-4 py-2 text-sm font-bold text-neutral shadow-lg backdrop-blur transition-colors hover:border-mf-coral/60 hover:text-mia-cream sm:left-6 sm:top-6"
-        aria-label="Volver al listado de calculadoras"
+        aria-label={backLabel}
       >
         <ArrowLeft className="h-4 w-4" />
-        Volver
+        {backLabel}
       </Link>
 
       {step !== 'success' ? (

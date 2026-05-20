@@ -9,6 +9,7 @@ import TRMBadge from './TRMBadge'
 import SummaryCards from './SummaryCards'
 import PortfolioChart from './PortfolioChart'
 import ExportPDFButton from './ExportPDFButton'
+import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
 import { Info } from 'lucide-react'
 
 export default function ResultsPanel() {
@@ -30,6 +31,20 @@ export default function ResultsPanel() {
     () => investments.map(inv => computeInvestmentResult(inv, transactions, snapshots, trm, config.baseCurrency)),
     [investments, transactions, snapshots, trm, config.baseCurrency]
   )
+  const downloadableResult = useMemo(() => ({
+    baseCurrency: config.baseCurrency,
+    trm,
+    investments: results.map(result => ({
+      investment: result.investment.name,
+      pilar: result.investment.pilar,
+      currency: result.investment.currency,
+      totalInvested: result.totalInvestedLocal ?? result.totalInvestedUSDtoLocal ?? 0,
+      currentValue: result.currentValueLocal ?? result.currentValueUSDtoLocal ?? 0,
+      irrLocal: result.irrLocal,
+      irrUSD: result.irrUSD,
+      irrUSDtoLocal: result.irrUSDtoLocal,
+    })),
+  }), [config.baseCurrency, results, trm])
 
   const handleTRMChange = useCallback((rate: number) => setTrm(rate), [])
 
@@ -46,14 +61,23 @@ export default function ResultsPanel() {
 
   return (
     <div className="space-y-6">
-      {/* TRM + Export */}
+      {/* TRM */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <TRMBadge onTRMChange={handleTRMChange} />
-        <ExportPDFButton results={results} trm={trm} />
       </div>
 
       {/* Summary */}
       <SummaryCards results={results} trm={trm} />
+
+      <SimulatorActionBar
+        title="Calculadora de Rentabilidad"
+        description="TIR multi-moneda para medir el desempeño real de tus inversiones."
+        result={downloadableResult}
+        fileBaseName="calculadora-rentabilidad"
+        advisorMessage="Hola Moneyflow, quiero agendar una asesoría para revisar mis resultados de rentabilidad con un Money Strategist."
+        shareMessage="Estoy usando la Calculadora de Rentabilidad de Moneyflow para medir mejor mis inversiones."
+        downloadSlot={<ExportPDFButton results={results} trm={trm} />}
+      />
 
       {/* Results table */}
       <div className="glass rounded-2xl border border-mia-border overflow-hidden">

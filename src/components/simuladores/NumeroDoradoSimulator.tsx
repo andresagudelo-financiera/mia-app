@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Gem, Loader2, MessageCircle, X } from 'lucide-react'
+import { ArrowLeft, Gem, Loader2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import UserRegistrationModal from '@/components/auth/UserRegistrationModal'
+import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
 import { simulatorsApi } from '@/services/api/simulators.api'
 import { useUserStore } from '@/stores/user.store'
 import { pushEvent, trackMetaEvent } from '@/lib/analytics'
@@ -201,30 +202,15 @@ export default function NumeroDoradoSimulator() {
                 <Metric title="Ahorro mensual sugerido" value={formatCurrency(result.results.monthlySavingsWithReturn, selectedCurrency)} />
               </div>
 
-              <div className="flex flex-col gap-3 rounded-3xl border border-mia-border bg-mia-surface/25 p-4 sm:flex-row sm:items-center sm:justify-between lg:col-span-2">
-                <div>
-                  <p className="font-heading text-lg font-bold text-mia-cream">¿Quieres interpretar estos resultados?</p>
-                  <p className="text-sm text-neutral">Un Money Strategist puede ayudarte a convertir esta proyección en un plan claro.</p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <a
-                    href="https://wa.me/573205389740?text=Hola%20Moneyflow%2C%20quiero%20analizar%20mi%20N%C3%BAmero%20Dorado%20con%20un%20Money%20Strategist."
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-sm font-bold text-white shadow-lg shadow-mf-coral/20 transition hover:opacity-90"
-                  >
-                    <MessageCircle className="h-4 w-4" />
-                    Analizar con Money Strategist
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => downloadGoldenNumberPdf(result, selectedCurrency)}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-4 py-3 text-sm font-bold text-[#7A4E00] transition hover:bg-[#D4AF37]/20 dark:text-[#F6D56B]"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Descargar PDF
-                  </button>
-                </div>
+              <div className="lg:col-span-2">
+                <SimulatorActionBar
+                  title="Número Dorado"
+                  description="Capital objetivo estimado para sostener tu retiro según tus supuestos."
+                  result={result}
+                  fileBaseName="numero-dorado"
+                  advisorMessage="Hola Moneyflow, quiero agendar una asesoría para analizar mi Número Dorado con un Money Strategist."
+                  shareMessage="Calculé mi Número Dorado con Moneyflow para planear mi retiro."
+                />
               </div>
 
               <SavingsProjectionChart result={result} currency={selectedCurrency} />
