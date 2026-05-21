@@ -4,7 +4,8 @@ export const academyApi = {
   async listCourses(userId?: string) {
     const params = new URLSearchParams()
     if (userId) params.set('userId', userId)
-    const response = await fetch(`/api/academy${params.size ? `?${params.toString()}` : ''}`, { cache: 'no-store' })
+    params.set('ts', String(Date.now()))
+    const response = await fetch(`/api/academy?${params.toString()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } })
     const payload = await response.json().catch(() => null)
     if (!response.ok) throw new Error(payload?.error || 'No se pudo cargar la academia.')
     return payload.courses as AcademyCourse[]
@@ -13,7 +14,8 @@ export const academyApi = {
   async listLearningPaths(userId?: string) {
     const params = new URLSearchParams()
     if (userId) params.set('userId', userId)
-    const response = await fetch(`/api/academy/paths${params.size ? `?${params.toString()}` : ''}`, { cache: 'no-store' })
+    params.set('ts', String(Date.now()))
+    const response = await fetch(`/api/academy/paths?${params.toString()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } })
     const payload = await response.json().catch(() => null)
     if (!response.ok) throw new Error(payload?.error || 'No se pudo cargar la carrera.')
     return payload.paths as AcademyLearningPath[]
@@ -22,7 +24,8 @@ export const academyApi = {
   async getCourse(slug: string, userId?: string) {
     const params = new URLSearchParams({ slug })
     if (userId) params.set('userId', userId)
-    const response = await fetch(`/api/academy/course?${params.toString()}`, { cache: 'no-store' })
+    params.set('ts', String(Date.now()))
+    const response = await fetch(`/api/academy/course?${params.toString()}`, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } })
     const payload = await response.json().catch(() => null)
     if (!response.ok) throw new Error(payload?.error || 'No se pudo cargar el curso.')
     return payload.course as AcademyCourse

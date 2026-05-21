@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Gem, Loader2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Gem, Loader2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import UserRegistrationModal from '@/components/auth/UserRegistrationModal'
 import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
@@ -29,16 +29,32 @@ const FIELDS = [
 type FormState = Record<string, string>
 
 const DEFAULTS: FormState = {
+  age: '35',
+  retirementAge: '60',
   lifeExpectancy: '85',
   estimatedInflation: '6',
   expectedReturnRate: '10',
   netReturn: '4',
   otherIncomeSources: '0',
   totalSavings: '0',
+  monthlyLivingCost: '6000000',
+  desiredPostRetirementIncome: '72000000',
   annualExpenses: '0',
   riskScore: '8',
   currency: 'COP',
 }
+
+const LIFESTYLE_PRESETS = [
+  { key: 'tranquilo', label: 'Tranquilo', monthly: 3000000, emoji: '🌱', description: 'Cubrir necesidades y vivir simple.' },
+  { key: 'comodo', label: 'Cómodo', monthly: 6000000, emoji: '🏡', description: 'Buen estilo de vida sin excesos.' },
+  { key: 'premium', label: 'Premium', monthly: 12000000, emoji: '✨', description: 'Viajes, salud, familia y margen.' },
+]
+
+const ASSUMPTION_PRESETS = [
+  { key: 'defensivo', label: 'Defensivo', inflation: '6', returnRate: '7', emoji: '🛡️' },
+  { key: 'balanceado', label: 'Balanceado', inflation: '5', returnRate: '9', emoji: '⚖️' },
+  { key: 'crecimiento', label: 'Crecimiento', inflation: '4', returnRate: '11', emoji: '🚀' },
+]
 
 function formatCurrency(value: unknown, currency = 'COP') {
   const numeric = Number(value)
@@ -68,7 +84,12 @@ export default function NumeroDoradoSimulator() {
   const [loadingPrevious, setLoadingPrevious] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showResultModal, setShowResultModal] = useState(false)
+  const [activeStep, setActiveStep] = useState(0)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const selectedCurrency = form.currency || profile?.baseCurrency || 'COP'
+  const monthlyTarget = Number(form.monthlyLivingCost || 0) || Math.round((Number(form.desiredPostRetirementIncome || 0) || 0) / 12)
+  const yearsToRetirement = Math.max(0, Number(form.retirementAge || 0) - Number(form.age || 0))
+  const journeyComplete = Boolean(Number(form.age) && Number(form.retirementAge) && Number(form.desiredPostRetirementIncome))
 
   useEffect(() => {
     if (profile?.baseCurrency) {
@@ -119,6 +140,18 @@ export default function NumeroDoradoSimulator() {
     }
   }
 
+  const updateField = (key: string, value: string | number) => {
+    setForm(current => ({ ...current, [key]: String(value) }))
+  }
+
+  const updateMonthlyTarget = (monthly: number) => {
+    setForm(current => ({
+      ...current,
+      monthlyLivingCost: String(monthly),
+      desiredPostRetirementIncome: String(monthly * 12),
+    }))
+  }
+
   return (
     <main className="min-h-screen bg-mia-black px-4 py-8 text-mia-cream sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl">
@@ -140,46 +173,25 @@ export default function NumeroDoradoSimulator() {
             {loadingPrevious && <span className="inline-flex items-center gap-2 text-sm text-neutral"><Loader2 className="h-4 w-4 animate-spin" /> Cargando datos...</span>}
           </div>
 
-          <div className="mb-4 max-w-xs rounded-2xl border border-mia-border bg-mia-surface/30 p-4">
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">Moneda de cálculo</span>
-              <select
-                value={selectedCurrency}
-                onChange={event => setForm(current => ({ ...current, currency: event.target.value }))}
-                className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm font-semibold text-mia-cream outline-none transition focus:border-mf-coral"
-              >
-                {SUPPORTED_CURRENCIES.map(currency => (
-                  <option key={currency} value={currency}>{currency}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {FIELDS.map(field => (
-              <label key={field.key} className="block rounded-2xl border border-mia-border bg-mia-surface/30 p-4">
-                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">{field.label}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    value={form[field.key] ?? ''}
-                    onChange={event => setForm(current => ({ ...current, [field.key]: event.target.value }))}
-                    placeholder={field.placeholder}
-                    className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm text-mia-cream outline-none transition focus:border-mf-coral"
-                  />
-                  <span className="min-w-10 text-xs font-semibold text-neutral">{field.suffix === 'money' ? selectedCurrency : field.suffix}</span>
-                </div>
-              </label>
-            ))}
-          </div>
+          <GoldenJourney
+            form={form}
+            selectedCurrency={selectedCurrency}
+            activeStep={activeStep}
+            setActiveStep={setActiveStep}
+            showAdvanced={showAdvanced}
+            setShowAdvanced={setShowAdvanced}
+            updateField={updateField}
+            updateMonthlyTarget={updateMonthlyTarget}
+            monthlyTarget={monthlyTarget}
+            yearsToRetirement={yearsToRetirement}
+            journeyComplete={journeyComplete}
+          />
 
           {error && <p className="mt-4 rounded-xl border border-loss/30 bg-loss/10 px-4 py-3 text-sm text-loss">{error}</p>}
 
           <button onClick={save} disabled={loading} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-mf px-6 py-4 font-bold text-white shadow-lg shadow-mf-coral/20 transition hover:opacity-90 disabled:opacity-50 md:w-auto">
             {loading && <Loader2 className="h-5 w-5 animate-spin" />}
-            Calcular y guardar número dorado
+            {journeyComplete ? 'Calcular y guardar número dorado' : 'Completa tu mapa de libertad'}
           </button>
 
           {result?.results && (
@@ -268,6 +280,281 @@ function fireGoldenConfetti() {
   })
 
   window.setTimeout(() => container.remove(), 5200)
+}
+
+function GoldenJourney({
+  form,
+  selectedCurrency,
+  activeStep,
+  setActiveStep,
+  showAdvanced,
+  setShowAdvanced,
+  updateField,
+  updateMonthlyTarget,
+  monthlyTarget,
+  yearsToRetirement,
+  journeyComplete,
+}: {
+  form: FormState
+  selectedCurrency: string
+  activeStep: number
+  setActiveStep: (step: number) => void
+  showAdvanced: boolean
+  setShowAdvanced: (value: boolean) => void
+  updateField: (key: string, value: string | number) => void
+  updateMonthlyTarget: (monthly: number) => void
+  monthlyTarget: number
+  yearsToRetirement: number
+  journeyComplete: boolean
+}) {
+  const steps = [
+    { title: 'Horizonte', icon: CalendarClock },
+    { title: 'Vida ideal', icon: Sparkles },
+    { title: 'Supuestos', icon: SlidersHorizontal },
+    { title: 'Vista previa', icon: Gem },
+  ]
+  const estimatedPreview = estimateGoldenPreview(form)
+
+  return (
+    <section className="space-y-6">
+      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+        <div className="relative overflow-hidden rounded-[2rem] border border-[#D4AF37]/35 bg-[radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.95),transparent_34%),radial-gradient(circle_at_95%_90%,rgba(245,166,35,0.20),transparent_36%),linear-gradient(135deg,#FFF9E8_0%,#F7E8B8_46%,#E8C96F_100%)] p-5 shadow-2xl shadow-[#D4AF37]/15 md:p-6">
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/60 blur-3xl" />
+          <div className="absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#F5A623]/20 blur-3xl" />
+          <div className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/90 to-transparent" />
+          <div className="relative">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#B8860B]/30 bg-white/55 px-3 py-1 text-xs font-black text-[#7A4E00] shadow-sm shadow-[#D4AF37]/10">
+              <Gem className="h-4 w-4" /> Meta de libertad financiera
+            </div>
+            <h2 className="font-heading text-3xl font-black leading-tight tracking-[-0.03em] text-[#201506] md:text-4xl">Construye tu número dorado en 4 pasos</h2>
+            <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed text-[#6B5217]">Primero defines la vida que quieres sostener. Luego ajustas tiempo, inflación y rentabilidad para calcular tu capital objetivo.</p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <GoldenSignal label="Ingreso mensual objetivo" value={formatCurrency(monthlyTarget, selectedCurrency)} />
+              <GoldenSignal label="Años para construirlo" value={`${yearsToRetirement || '—'} años`} />
+              <GoldenSignal label="Ahorro actual" value={formatCurrency(form.totalSavings || 0, selectedCurrency)} />
+              <GoldenSignal label="Preview estimado" value={formatCurrency(estimatedPreview, selectedCurrency)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[2rem] border border-mia-border bg-mia-surface/30 p-4 md:p-5">
+          <div className="mb-5 grid grid-cols-4 gap-2">
+            {steps.map((step, index) => {
+              const Icon = step.icon
+              const active = activeStep === index
+              const done = index < activeStep || (journeyComplete && index <= activeStep)
+              return (
+                <button
+                  key={step.title}
+                  type="button"
+                  onClick={() => setActiveStep(index)}
+                  className={`rounded-2xl border p-3 text-center transition hover:-translate-y-0.5 ${active ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#F6D56B]' : done ? 'border-gain/30 bg-gain/10 text-gain' : 'border-mia-border bg-mia-black/30 text-neutral'}`}
+                >
+                  <Icon className="mx-auto mb-2 h-5 w-5" />
+                  <span className="hidden text-xs font-bold sm:block">{step.title}</span>
+                  <span className="text-xs font-bold sm:hidden">{index + 1}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {activeStep === 0 && (
+            <div className="space-y-5">
+              <StepHeader eyebrow="Paso 1" title="¿Cuándo quieres activar tu libertad?" text="Ajusta tu edad actual, edad objetivo y hasta cuándo quieres proyectar tu plan." />
+              <RangeField label="Edad actual" value={Number(form.age || 0)} min={18} max={75} suffix="años" onChange={value => updateField('age', value)} />
+              <RangeField label="Edad objetivo" value={Number(form.retirementAge || 0)} min={25} max={85} suffix="años" onChange={value => updateField('retirementAge', value)} />
+              <RangeField label="Esperanza de vida" value={Number(form.lifeExpectancy || 0)} min={70} max={105} suffix="años" onChange={value => updateField('lifeExpectancy', value)} />
+            </div>
+          )}
+
+          {activeStep === 1 && (
+            <div className="space-y-5">
+              <StepHeader eyebrow="Paso 2" title="Define tu vida ideal mensual" text="Elige un preset o escribe cuánto dinero mensual quieres recibir para vivir tranquilo." />
+              <div className="grid gap-3 sm:grid-cols-3">
+                {LIFESTYLE_PRESETS.map(preset => {
+                  const active = Math.abs(monthlyTarget - preset.monthly) < 1
+                  return (
+                    <button key={preset.key} type="button" onClick={() => updateMonthlyTarget(preset.monthly)} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-1 ${active ? 'border-[#D4AF37] bg-[#D4AF37]/15' : 'border-mia-border bg-mia-black/30 hover:border-[#D4AF37]/50'}`}>
+                      <span className="text-2xl">{preset.emoji}</span>
+                      <h3 className="mt-2 font-heading text-lg font-bold">{preset.label}</h3>
+                      <p className="mt-1 text-sm font-bold text-[#F6D56B]">{formatCurrency(preset.monthly, selectedCurrency)}/mes</p>
+                      <p className="mt-2 text-xs text-neutral">{preset.description}</p>
+                    </button>
+                  )
+                })}
+              </div>
+              <MoneyField label="Ingreso mensual deseado" value={monthlyTarget} currency={selectedCurrency} onChange={updateMonthlyTarget} />
+              <MoneyField label="Otros ingresos anuales esperados" value={Number(form.otherIncomeSources || 0)} currency={selectedCurrency} onChange={value => updateField('otherIncomeSources', value)} />
+            </div>
+          )}
+
+          {activeStep === 2 && (
+            <div className="space-y-5">
+              <StepHeader eyebrow="Paso 3" title="Ajusta supuestos sin complicarte" text="Puedes escoger un escenario o mover los sliders. El modo avanzado sigue disponible abajo." />
+              <div className="grid gap-3 sm:grid-cols-3">
+                {ASSUMPTION_PRESETS.map(preset => (
+                  <button
+                    key={preset.key}
+                    type="button"
+                    onClick={() => {
+                      updateField('estimatedInflation', preset.inflation)
+                      updateField('expectedReturnRate', preset.returnRate)
+                      updateField('riskScore', preset.returnRate)
+                    }}
+                    className="rounded-2xl border border-mia-border bg-mia-black/30 p-4 text-left transition hover:-translate-y-1 hover:border-[#D4AF37]/50"
+                  >
+                    <span className="text-2xl">{preset.emoji}</span>
+                    <h3 className="mt-2 font-heading text-lg font-bold">{preset.label}</h3>
+                    <p className="mt-1 text-xs text-neutral">Inflación {preset.inflation}% · Rentabilidad {preset.returnRate}%</p>
+                  </button>
+                ))}
+              </div>
+              <RangeField label="Inflación estimada" value={Number(form.estimatedInflation || 0)} min={0} max={15} suffix="%" onChange={value => updateField('estimatedInflation', value)} />
+              <RangeField label="Rentabilidad esperada" value={Number(form.expectedReturnRate || 0)} min={0} max={20} suffix="%" onChange={value => {
+                updateField('expectedReturnRate', value)
+                updateField('riskScore', value)
+              }} />
+              <MoneyField label="Ahorro actual para retiro" value={Number(form.totalSavings || 0)} currency={selectedCurrency} onChange={value => updateField('totalSavings', value)} />
+            </div>
+          )}
+
+          {activeStep === 3 && (
+            <div className="space-y-5">
+              <StepHeader eyebrow="Paso 4" title="Vista previa de tu meta" text="Esta es una aproximación visual. El cálculo oficial se genera al guardar el simulador." />
+              <div className="rounded-[2rem] border border-[#D4AF37]/40 bg-[#D4AF37]/10 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-[#F6D56B]">Preview</p>
+                <p className="mt-3 font-heading text-4xl font-black text-mia-cream">{formatCurrency(estimatedPreview, selectedCurrency)}</p>
+                <p className="mt-3 text-sm text-neutral">Capital estimado para producir {formatCurrency(monthlyTarget, selectedCurrency)} mensuales.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <GoldenSignal label="Actual" value={formatCurrency(form.totalSavings || 0, selectedCurrency)} />
+                <GoldenSignal label="Gap aprox." value={formatCurrency(Math.max(estimatedPreview - Number(form.totalSavings || 0), 0), selectedCurrency)} />
+                <GoldenSignal label="Ingreso anual" value={formatCurrency(form.desiredPostRetirementIncome || 0, selectedCurrency)} />
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <button type="button" disabled={activeStep === 0} onClick={() => setActiveStep(Math.max(0, activeStep - 1))} className="inline-flex items-center gap-2 rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm font-bold text-neutral transition hover:border-[#D4AF37]/50 disabled:cursor-not-allowed disabled:opacity-40">
+              <ChevronLeft className="h-4 w-4" /> Atrás
+            </button>
+            <button type="button" disabled={activeStep === steps.length - 1} onClick={() => setActiveStep(Math.min(steps.length - 1, activeStep + 1))} className="inline-flex items-center gap-2 rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 px-4 py-3 text-sm font-bold text-[#F6D56B] transition hover:bg-[#D4AF37]/15 disabled:cursor-not-allowed disabled:opacity-40">
+              Siguiente <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-[2rem] border border-mia-border bg-mia-surface/25 p-5">
+        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="inline-flex items-center gap-2 text-sm font-bold text-[#F6D56B]">
+          <SlidersHorizontal className="h-4 w-4" /> {showAdvanced ? 'Ocultar modo avanzado' : 'Mostrar modo avanzado'}
+        </button>
+
+        {showAdvanced && (
+          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <label className="block rounded-2xl border border-mia-border bg-mia-black/30 p-4">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">Moneda de cálculo</span>
+              <select
+                value={selectedCurrency}
+                onChange={event => updateField('currency', event.target.value)}
+                className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm font-semibold text-mia-cream outline-none transition focus:border-mf-coral"
+              >
+                {SUPPORTED_CURRENCIES.map(currency => (
+                  <option key={currency} value={currency}>{currency}</option>
+                ))}
+              </select>
+            </label>
+            {FIELDS.map(field => (
+              <label key={field.key} className="block rounded-2xl border border-mia-border bg-mia-black/30 p-4">
+                <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-neutral">{field.label}</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    value={form[field.key] ?? ''}
+                    onChange={event => updateField(field.key, event.target.value)}
+                    placeholder={field.placeholder}
+                    className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm text-mia-cream outline-none transition focus:border-mf-coral"
+                  />
+                  <span className="min-w-10 text-xs font-semibold text-neutral">{field.suffix === 'money' ? selectedCurrency : field.suffix}</span>
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function StepHeader({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#F6D56B]">{eyebrow}</p>
+      <h3 className="mt-2 font-heading text-2xl font-bold text-mia-cream">{title}</h3>
+      <p className="mt-2 text-sm leading-relaxed text-neutral">{text}</p>
+    </div>
+  )
+}
+
+function GoldenSignal({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[#B8860B]/25 bg-white/58 p-3 shadow-sm shadow-[#B8860B]/10 backdrop-blur-sm">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#7A4E00]/75">{label}</p>
+      <p className="mt-1 break-words font-heading text-lg font-black tracking-[-0.02em] text-[#201506]">{value}</p>
+    </div>
+  )
+}
+
+function RangeField({ label, value, min, max, suffix, onChange }: { label: string; value: number; min: number; max: number; suffix: string; onChange: (value: number) => void }) {
+  const safeValue = Number.isFinite(value) && value > 0 ? value : min
+  return (
+    <label className="block rounded-2xl border border-mia-border bg-mia-black/30 p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-sm font-bold text-neutral">{label}</span>
+        <span className="rounded-full bg-[#D4AF37]/10 px-3 py-1 text-sm font-black text-[#F6D56B]">{safeValue} {suffix}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={safeValue}
+        onChange={event => onChange(Number(event.target.value))}
+        className="w-full accent-[#D4AF37]"
+      />
+    </label>
+  )
+}
+
+function MoneyField({ label, value, currency, onChange }: { label: string; value: number; currency: string; onChange: (value: number) => void }) {
+  return (
+    <label className="block rounded-2xl border border-mia-border bg-mia-black/30 p-4">
+      <span className="mb-2 block text-sm font-bold text-neutral">{label}</span>
+      <div className="flex items-center gap-3">
+        <input
+          type="number"
+          inputMode="decimal"
+          min="0"
+          value={value || ''}
+          onChange={event => onChange(Number(event.target.value || 0))}
+          className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm font-semibold text-mia-cream outline-none transition focus:border-[#D4AF37]"
+        />
+        <span className="text-xs font-bold text-neutral">{currency}</span>
+      </div>
+    </label>
+  )
+}
+
+function estimateGoldenPreview(form: FormState) {
+  const annualIncome = Number(form.desiredPostRetirementIncome || 0)
+  const otherIncome = Number(form.otherIncomeSources || 0)
+  const netReturn = Math.max(Number(form.netReturn || 4), 1) / 100
+  const inflation = Math.max(Number(form.estimatedInflation || 0), 0) / 100
+  const years = Math.max(0, Number(form.retirementAge || 0) - Number(form.age || 0))
+  const futureAnnualNeed = Math.max(annualIncome - otherIncome, 0) * Math.pow(1 + inflation, years)
+  return futureAnnualNeed / netReturn
 }
 
 function GoldenNumberResultModal({ result, currency, onClose }: { result: any; currency: string; onClose: () => void }) {

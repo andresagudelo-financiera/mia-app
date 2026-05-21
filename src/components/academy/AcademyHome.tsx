@@ -71,17 +71,18 @@ function LearningPathCard({ path }: { path: AcademyLearningPath }) {
   const percent = Math.round((completed / total) * 100)
   const firstCourse = path.courses[0]
   const href = firstCourse ? `/academia/cursos/${firstCourse.courseKey}` : '/academia'
+  const diplomaHref = path.certificate ? `/academia/diplomas/${path.certificate.verificationCode}` : null
 
   return (
-    <Link href={href} className="group block rounded-3xl border border-mf-coral/30 bg-gradient-to-br from-mf-coral/15 via-mia-card/80 to-mia-black p-6 shadow-2xl shadow-mf-coral/10 transition hover:-translate-y-1 hover:border-mf-coral/60 hover:shadow-mf-coral/20">
+    <div className="group block rounded-3xl border border-mf-coral/30 bg-gradient-to-br from-mf-coral/15 via-mia-card/80 to-mia-black p-6 shadow-2xl shadow-mf-coral/10 transition hover:-translate-y-1 hover:border-mf-coral/60 hover:shadow-mf-coral/20">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-mf-coral/10 px-3 py-1 text-xs font-bold text-mf-coral"><Award className="h-4 w-4" /> Carrera</div>
           <h3 className="font-heading text-2xl font-bold text-mia-cream">{path.title}</h3>
         </div>
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-mf-coral/30 bg-mf-coral/10 text-mf-coral transition group-hover:translate-x-1 group-hover:bg-mf-coral group-hover:text-white">
+        <Link href={href} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-mf-coral/30 bg-mf-coral/10 text-mf-coral transition group-hover:translate-x-1 group-hover:bg-mf-coral group-hover:text-white" aria-label="Abrir carrera">
           <ArrowRight className="h-5 w-5" />
-        </span>
+        </Link>
       </div>
       <p className="mt-3 text-sm leading-relaxed text-neutral">{path.description}</p>
       <div className="mt-5 space-y-2">
@@ -96,13 +97,22 @@ function LearningPathCard({ path }: { path: AcademyLearningPath }) {
         <div className="mb-2 flex justify-between text-xs font-semibold text-neutral"><span>{completed}/{path.courses.length} cursos completados</span><span>{percent}%</span></div>
         <div className="h-2 rounded-full bg-mia-surface"><div className="h-full rounded-full bg-gradient-mf" style={{ width: `${percent}%` }} /></div>
       </div>
-      <div className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-mf-coral">Empezar carrera <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></div>
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+        <Link href={href} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-5 py-3 text-sm font-bold text-white">
+          {percent >= 100 ? 'Repasar carrera' : 'Empezar carrera'} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+        </Link>
+        {diplomaHref && (
+          <Link href={diplomaHref} className="inline-flex items-center justify-center gap-2 rounded-xl border border-gain/40 bg-gain/10 px-5 py-3 text-sm font-bold text-gain hover:bg-gain hover:text-white">
+            <Trophy className="h-4 w-4" /> Ver diploma
+          </Link>
+        )}
+      </div>
       {path.certificate && (
         <div className="mt-5 rounded-2xl border border-gain/30 bg-gain/10 p-4 text-sm text-gain">
           <Trophy className="mr-2 inline h-4 w-4" /> Diploma emitido: {path.certificate.title} · Código {path.certificate.verificationCode}
         </div>
       )}
-    </Link>
+    </div>
   )
 }
 

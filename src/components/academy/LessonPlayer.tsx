@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, Award, CheckCircle2, HelpCircle, LockKeyhole, PauseCircle, PlayCircle, RotateCcw, ShieldCheck, Trophy } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Award, CheckCircle2, HelpCircle, LockKeyhole, PauseCircle, PlayCircle, RotateCcw, ShieldCheck, Trophy } from 'lucide-react'
 import { academyApi } from '@/services/api/academy.api'
 import { useUserStore } from '@/stores/user.store'
-import type { AcademyLesson, AcademyQuiz, AcademyQuizAttempt } from '@/types/rentabilidad'
+import type { AcademyLesson, AcademyLearningPath, AcademyQuiz, AcademyQuizAttempt } from '@/types/rentabilidad'
 
 export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: string; lessonSlug: string }) {
   const { profile } = useUserStore()
@@ -13,6 +13,7 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
   const [quiz, setQuiz] = useState<AcademyQuiz | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [attempt, setAttempt] = useState<AcademyQuizAttempt | null>(null)
+  const [issuedDiplomaPath, setIssuedDiplomaPath] = useState<AcademyLearningPath | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [quizError, setQuizError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -21,6 +22,7 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
     setLesson(null)
     setQuiz(null)
     setAttempt(null)
+    setIssuedDiplomaPath(null)
     setAnswers({})
     setError(null)
     academyApi.getLesson(courseSlug, lessonSlug, profile?.id)
@@ -44,6 +46,9 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
     try {
       const payload = await academyApi.trackLessonProgress({ userId: profile.id, lessonId: lesson.id, progressPercent: 100, status: 'completed', eventName: lesson.lessonType === 'video' ? 'video_completed' : 'lesson_completed' })
       setLesson(current => current ? { ...current, progress: payload.progress } : current)
+      const paths = await academyApi.listLearningPaths(profile.id)
+      const completedPath = paths.find(path => path.certificate && path.courses.every(course => course.isCompleted))
+      setIssuedDiplomaPath(completedPath || null)
     } finally {
       setSaving(false)
     }
@@ -58,6 +63,9 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
       setAttempt(result)
       if (result.passed) {
         setLesson(current => current ? { ...current, progress: { ...current.progress, status: 'completed', progressPercent: 100 } } : current)
+        const paths = await academyApi.listLearningPaths(profile.id)
+        const completedPath = paths.find(path => path.certificate && path.courses.every(course => course.isCompleted))
+        setIssuedDiplomaPath(completedPath || null)
       }
     } catch (err) {
       setQuizError((err as Error).message)
@@ -134,6 +142,21 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
                 </div>
               )}
 
+
+              {issuedDiplomaPath?.certificate && (
+                <div className="mt-6 rounded-3xl border border-gain/30 bg-gain/10 p-5 text-gain">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-heading text-xl font-bold">¡Diploma desbloqueado!</p>
+                      <p className="mt-1 text-sm">Ya puedes ver y descargar tu diploma de la ruta {issuedDiplomaPath.title}. Código {issuedDiplomaPath.certificate.verificationCode}.</p>
+                    </div>
+                    <Link href={`/academia/diplomas/${issuedDiplomaPath.certificate.verificationCode}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gain px-5 py-3 text-sm font-bold text-white">
+                      Ver diploma <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <button onClick={submitQuiz} disabled={!profile?.id || !quizComplete || saving || Boolean(attempt?.passed)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-5 py-4 text-sm font-bold text-white disabled:opacity-50"><Award className="h-5 w-5" /> Enviar quiz</button>
                 {attempt && !attempt.passed && <button onClick={() => { setAttempt(null); setAnswers({}) }} className="rounded-xl border border-mia-border px-5 py-4 text-sm font-bold text-neutral hover:text-mia-cream">Reintentar</button>}
@@ -148,6 +171,19 @@ export default function LessonPlayer({ courseSlug, lessonSlug }: { courseSlug: s
             <ShieldCheck className="mr-2 inline h-4 w-4" /> Video alojado en YouTube y protegido por acceso de plataforma, watermark y trazabilidad. Para protección premium futura se puede migrar a Bunny/Cloudflare Stream sin cambiar la lógica de cursos.
           </div>
           <button onClick={markCompleted} disabled={!profile?.id || saving || lesson.progress.status === 'completed'} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-mf px-5 py-4 text-sm font-bold text-white disabled:opacity-50 sm:w-auto"><CheckCircle2 className="h-5 w-5" /> {lesson.progress.status === 'completed' ? 'Lección completada' : 'Marcar como completada'}</button>
+          {issuedDiplomaPath?.certificate && (
+            <div className="rounded-3xl border border-gain/30 bg-gain/10 p-5 text-gain">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-heading text-xl font-bold">¡Diploma desbloqueado!</p>
+                  <p className="mt-1 text-sm">Ya puedes ver y descargar tu diploma de la ruta {issuedDiplomaPath.title}. Código {issuedDiplomaPath.certificate.verificationCode}.</p>
+                </div>
+                <Link href={`/academia/diplomas/${issuedDiplomaPath.certificate.verificationCode}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gain px-5 py-3 text-sm font-bold text-white">
+                  Ver diploma <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
