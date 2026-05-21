@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowRight, Calculator, CheckCircle2, LockKeyhole, Trophy, Zap } from 'lucide-react'
 import CalculatorCards from '@/components/landing/CalculatorCards'
+import { challengesApi } from '@/services/api/challenges.api'
+import type { Challenge } from '@/types/rentabilidad'
 
 const tabs = [
   { key: 'simulators', label: 'Simuladores', icon: Calculator },
@@ -39,26 +42,88 @@ export default function CalculatorDirectory() {
 }
 
 function ChallengeCards() {
+  const [challenge, setChallenge] = useState<Challenge | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    challengesApi.getChallenge('reto-anti-deuda')
+      .then(data => {
+        if (!active) return
+        setChallenge(data)
+        setError(null)
+      })
+      .catch(err => {
+        if (!active) return
+        setChallenge(null)
+        setError((err as Error).message || 'No hay retos disponibles.')
+      })
+      .finally(() => active && setLoading(false))
+
+    return () => { active = false }
+  }, [])
+
+  const isActive = challenge?.status === 'active'
+  const isComingSoon = challenge?.status === 'coming_soon'
+  const hiddenOrDisabled = !loading && (!challenge || challenge.status === 'hidden' || challenge.status === 'disabled')
+
+  if (loading) {
+    return (
+      <section className="rounded-3xl border border-mia-border bg-mia-card/60 p-8 text-center text-neutral">
+        Cargando retos disponibles...
+      </section>
+    )
+  }
+
+  if (hiddenOrDisabled) {
+    return (
+      <section className="rounded-3xl border border-mia-border bg-mia-card/60 p-8 text-center">
+        <LockKeyhole className="mx-auto mb-3 h-8 w-8 text-neutral" />
+        <h3 className="font-heading text-2xl font-bold text-mia-cream">No hay retos disponibles por ahora</h3>
+        <p className="mt-2 text-sm text-neutral">El equipo está preparando nuevas rutas. Vuelve pronto.</p>
+        {error && <p className="mt-3 text-xs text-neutral/70">{error}</p>}
+      </section>
+    )
+  }
+
+  const CardShell = ({ children }: { children: ReactNode }) => isActive ? (
+    <Link href="/retos/anti-deuda" className="group block overflow-hidden rounded-3xl border border-mf-coral/30 bg-gradient-to-br from-mf-coral/20 via-mia-card to-mia-black p-6 shadow-xl shadow-mf-coral/10 transition hover:-translate-y-1 hover:border-mf-coral/60 md:p-8">
+      {children}
+    </Link>
+  ) : (
+    <div className="group block overflow-hidden rounded-3xl border border-mia-border bg-gradient-to-br from-mia-surface/70 via-mia-card to-mia-black p-6 opacity-80 shadow-xl md:p-8">
+      {children}
+    </div>
+  )
+
   return (
     <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      <Link href="/retos/anti-deuda" className="group block overflow-hidden rounded-3xl border border-mf-coral/30 bg-gradient-to-br from-mf-coral/20 via-mia-card to-mia-black p-6 shadow-xl shadow-mf-coral/10 transition hover:-translate-y-1 hover:border-mf-coral/60 md:p-8">
-        <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-mf-coral/30 bg-mf-coral/10 px-3 py-1 text-xs font-bold text-mf-coral">
-          <Zap className="h-4 w-4" /> Reto activo
+      <CardShell>
+        <div className={`mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold ${isActive ? 'border-mf-coral/30 bg-mf-coral/10 text-mf-coral' : 'border-mf-orange/30 bg-mf-orange/10 text-mf-orange'}`}>
+          <Zap className="h-4 w-4" /> {isActive ? 'Reto activo' : isComingSoon ? 'Próximamente' : 'Reto bloqueado'}
         </div>
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div className="max-w-2xl">
-            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-mf-coral/15 text-mf-coral">
+            <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl ${isActive ? 'bg-mf-coral/15 text-mf-coral' : 'bg-mf-orange/10 text-mf-orange'}`}>
               <Trophy className="h-8 w-8" />
             </div>
-            <h2 className="font-heading text-3xl font-bold text-mia-cream">Reto Anti-Deuda: De Deudor a Inversionista</h2>
+            <h2 className="font-heading text-3xl font-bold text-mia-cream">{challenge?.name || 'Reto Anti-Deuda: De Deudor a Inversionista'}</h2>
             <p className="mt-3 text-sm leading-relaxed text-neutral md:text-base">
-              Completa niveles, desbloquea simuladores por progreso y fecha, y construye tu mapa anti-deuda paso a paso.
+              {challenge?.description || 'Completa niveles, desbloquea simuladores por progreso y fecha, y construye tu mapa anti-deuda paso a paso.'}
             </p>
           </div>
-          <span className="inline-flex items-center gap-2 rounded-xl bg-gradient-mf px-5 py-3 text-sm font-bold text-white">
-            Entrar al reto
-            <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
-          </span>
+          {isActive ? (
+            <span className="inline-flex items-center gap-2 rounded-xl bg-gradient-mf px-5 py-3 text-sm font-bold text-white">
+              Entrar al reto
+              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-2 rounded-xl border border-mf-orange/30 bg-mf-orange/10 px-5 py-3 text-sm font-bold text-mf-orange">
+              <LockKeyhole className="h-4 w-4" /> Próximamente
+            </span>
+          )}
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-4">
@@ -69,7 +134,7 @@ function ChallengeCards() {
             </div>
           ))}
         </div>
-      </Link>
+      </CardShell>
 
       <div className="rounded-3xl border border-mia-border bg-mia-card/60 p-6 md:p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-gain/10 px-3 py-1 text-xs font-bold text-gain">
