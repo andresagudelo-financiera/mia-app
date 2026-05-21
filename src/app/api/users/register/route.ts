@@ -7,11 +7,27 @@ function normalizeSimulatorForGhl(toolName: string) {
   return String(toolName || 'rentabilidad').trim().toLowerCase().replace(/-/g, '_')
 }
 
-async function sendNewLeadToGhl(input: { id?: string; email: string; phone?: string | null; toolName: string; utmSource?: string | null }) {
+function splitFullName(name: string) {
+  const normalizedName = String(name || '').trim().replace(/\s+/g, ' ')
+  const [firstName = '', ...lastNameParts] = normalizedName.split(' ')
+
+  return {
+    fullName: normalizedName,
+    firstName,
+    lastName: lastNameParts.join(' '),
+  }
+}
+
+async function sendNewLeadToGhl(input: { id?: string; name?: string | null; email: string; phone?: string | null; toolName: string; utmSource?: string | null }) {
   if (!GHL_NEW_LEAD_WEBHOOK_URL) return { attempted: false, ok: false, reason: 'missing_webhook_url' }
 
+  const nameParts = splitFullName(input.name || '')
   const payload = {
     miaUserId: input.id,
+    name: nameParts.fullName,
+    fullName: nameParts.fullName,
+    firstName: nameParts.firstName,
+    lastName: nameParts.lastName,
     email: input.email,
     phone: input.phone || '',
     simulator: normalizeSimulatorForGhl(input.toolName),
@@ -39,7 +55,7 @@ async function sendNewLeadToGhl(input: { id?: string; email: string; phone?: str
     if (!response.ok) {
       console.error('GHL new lead webhook returned non-OK:', result)
     } else {
-      console.info('GHL new lead webhook sent:', { attempted: true, ok: true, status: response.status, email: input.email, simulator: payload.simulator })
+      console.info('GHL new lead webhook sent:', { attempted: true, ok: true, status: response.status, email: input.email, fullName: payload.fullName, simulator: payload.simulator })
     }
 
     return result
@@ -144,7 +160,7 @@ export async function POST(request: Request) {
     }
 
     const ghlLeadSync = user?.id && user?.email
-      ? await sendNewLeadToGhl({ id: user.id, email: user.email, phone: user.phone || phone, toolName, utmSource })
+      ? await sendNewLeadToGhl({ id: user.id, name: user.name || name, email: user.email, phone: user.phone || phone, toolName, utmSource })
       : { attempted: false, ok: false, reason: 'missing_user' }
 
     return NextResponse.json({ user, ghlLeadSync })
