@@ -105,6 +105,13 @@ function validatePassword(password?: string) {
   return null
 }
 
+
+function getCurrentUtmSource() {
+  if (typeof window === 'undefined') return 'direct'
+  const params = new URLSearchParams(window.location.search)
+  return params.get('utm_source') || params.get('utmSource') || 'direct'
+}
+
 export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad', backHref = '/calculadoras', backLabel = 'Volver' }: Props) {
   const { register, login, setInitialPassword } = useUserStore()
   const setBaseCurrency = useRentabilidadStore(s => s.setBaseCurrency)
@@ -255,7 +262,14 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
         return
       }
 
-      await register({ name, email: data.email, phone: fullPhone, baseCurrency: data.baseCurrency, password: data.password || '' }, toolName)
+      await register({
+        name,
+        email: data.email,
+        phone: fullPhone,
+        baseCurrency: data.baseCurrency,
+        password: data.password || '',
+        utm_source: getCurrentUtmSource(),
+      }, toolName)
       setBaseCurrency(data.baseCurrency)
       pushEvent('user_registered', { currency: data.baseCurrency, has_phone: true })
       trackMetaEvent('Lead', { content_name: contentName })

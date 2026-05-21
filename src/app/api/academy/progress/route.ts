@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isAcademyEnabled } from '@/lib/feature-flags'
 import { ACADEMY_COURSE_FIELDS, postGraphQL } from '../graphql'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,7 @@ const TRACK_LESSON = `
 `
 
 export async function POST(request: Request) {
+  if (!isAcademyEnabled()) return NextResponse.json({ error: 'Academia en construcción.' }, { status: 404 })
   const body = await request.json().catch(() => null)
   if (!body?.action) return NextResponse.json({ error: 'Acción inválida.' }, { status: 400 })
   try {

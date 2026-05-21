@@ -5,6 +5,7 @@ import { Activity, BookOpen, HelpCircle, KeyRound, Loader2, Plus, ShieldCheck, T
 import AdminGuard from '@/components/admin/AdminGuard'
 import AdminShell from '@/components/admin/AdminShell'
 import type { AcademyCourse } from '@/types/rentabilidad'
+import { isAcademyEnabled } from '@/lib/feature-flags'
 
 const COURSE_FIELDS = `
   id key slug title description status accessType level estimatedMinutes metadata
@@ -21,6 +22,19 @@ const UPSERT_QUIZ = `mutation UpsertQuiz($lessonId:String!,$title:String!,$descr
 const GRANT_ACCESS = `mutation GrantAcademyAccessByEmail($email:String!,$subjectType:String!,$subjectKey:String!,$accessType:String!,$source:String,$expiresAt:String){ adminGrantAcademyAccessByEmail(email:$email,subjectType:$subjectType,subjectKey:$subjectKey,accessType:$accessType,source:$source,expiresAt:$expiresAt) }`
 
 export default function AdminAcademiaPage() {
+  if (!isAcademyEnabled()) {
+    return (
+      <AdminGuard>
+        <AdminShell>
+          <div className="rounded-3xl border border-mf-coral/20 bg-mia-card p-8 text-mia-cream">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-mf-coral">Academia en construcción</p>
+            <h2 className="mt-3 font-heading text-2xl font-black">El módulo de cursos está oculto temporalmente</h2>
+            <p className="mt-2 max-w-2xl text-sm text-neutral">Para producción, Academia queda deshabilitada hasta terminar la validación funcional. Actívala con NEXT_PUBLIC_ACADEMY_ENABLED=true cuando esté lista.</p>
+          </div>
+        </AdminShell>
+      </AdminGuard>
+    )
+  }
   return <AdminGuard><AdminShell><AcademyAdmin /></AdminShell></AdminGuard>
 }
 

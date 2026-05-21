@@ -40,7 +40,6 @@ export default function Footer() {
               {[
                 { label: 'Inicio', href: '/' },
                 { label: 'Calculadoras', href: '/calculadoras' },
-                { label: 'Academia', href: '/academia' },
                 { label: 'Mi perfil', href: '/perfil' },
               ].map(link => (
                 <li key={link.href}>

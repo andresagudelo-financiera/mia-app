@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ArrowRight, BookOpen, Calculator, TrendingUp } from 'lucide-react'
+import { Calculator, TrendingUp } from 'lucide-react'
 import { pushEvent } from '@/lib/analytics'
 
 export default function Hero() {
@@ -54,16 +54,6 @@ export default function Hero() {
 
           {/* CTA */}
           <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              href="/academia"
-              id="hero-cta-academia"
-              onClick={() => pushEvent('cta_hero_click', { cta: 'academia_cursos' })}
-              className="group inline-flex w-full items-center justify-center gap-3 bg-gradient-mf text-white font-bold text-base px-8 py-4 rounded-xl hover:opacity-90 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-mf-coral/30 sm:w-auto"
-            >
-              <BookOpen className="w-5 h-5" />
-              Acceder a cursos
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
             <Link
               href="/calculadoras"
               id="hero-cta-primary"

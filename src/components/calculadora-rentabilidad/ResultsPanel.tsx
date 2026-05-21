@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useEffect, useCallback } from 'react'
 import { useRentabilidadStore } from '@/stores/rentabilidad.store'
-import { computeInvestmentResult } from '@/lib/financial-calculations'
+import { aggregatePortfolioTotals, computeInvestmentResult } from '@/lib/financial-calculations'
 import { pushEvent } from '@/lib/analytics'
-import { formatCurrency, formatPercent, formatNumber } from '@/lib/formatters'
+import { formatCurrency, formatPercent } from '@/lib/formatters'
 import TRMBadge from './TRMBadge'
 import SummaryCards from './SummaryCards'
 import PortfolioChart from './PortfolioChart'
@@ -32,6 +32,11 @@ export default function ResultsPanel() {
     () => investments.map(inv => computeInvestmentResult(inv, transactions, snapshots, trm, config.baseCurrency)),
     [investments, transactions, snapshots, trm, config.baseCurrency]
   )
+  const hasCompletedInputs = investments.length > 0 && transactions.length > 0 && snapshots.length > 0
+  const portfolioTotals = useMemo(() => aggregatePortfolioTotals(results), [results])
+  const portfolioGainLoss = portfolioTotals.currentValue - portfolioTotals.totalInvested
+  const portfolioGainLossPct = portfolioTotals.totalInvested > 0 ? (portfolioGainLoss / portfolioTotals.totalInvested) * 100 : 0
+
   const downloadableResult = useMemo(() => ({
     baseCurrency: config.baseCurrency,
     trm,
@@ -49,12 +54,18 @@ export default function ResultsPanel() {
 
   const handleTRMChange = useCallback((rate: number) => setTrm(rate), [])
 
-  if (investments.length === 0) {
+  if (!hasCompletedInputs) {
+    const missingStep = investments.length === 0
+      ? 'Agrega tu primera inversión.'
+      : transactions.length === 0
+        ? 'Registra al menos una entrada o salida.'
+        : 'Agrega al menos un corte de valor actual.'
+
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-neutral text-lg mb-2 font-heading font-semibold text-mia-cream">Sin datos aún</p>
+        <p className="text-neutral text-lg mb-2 font-heading font-semibold text-mia-cream">Resultados bloqueados por ahora</p>
         <p className="text-neutral text-sm max-w-sm">
-          Agrega inversiones, transacciones y cortes para ver tus resultados de rentabilidad.
+          {missingStep} Cuando completes inversiones, flujos y cortes, desbloquearemos el dashboard de resultados.
         </p>
       </div>
     )
@@ -86,8 +97,27 @@ export default function ResultsPanel() {
         description="TIR multi-moneda para medir el desempeño real de tus inversiones."
         result={downloadableResult}
         fileBaseName="calculadora-rentabilidad"
-        advisorMessage="Hola Moneyflow, quiero agendar una asesoría para revisar mis resultados de rentabilidad con un Money Strategist."
+        showAdvisor={false}
         shareMessage="Estoy usando la Calculadora de Rentabilidad de Moneyflow para medir mejor mis inversiones."
+        instagramStory={{
+          title: 'Mi rentabilidad real',
+          subtitle: 'Calculadora de Rentabilidad · Moneyflow by MIA',
+          mention: '@yosoyclaudiauribe',
+          metrics: [
+            { label: 'Capital aportado', value: formatCurrency(portfolioTotals.totalInvested, config.baseCurrency) },
+            { label: 'Valor actual', value: formatCurrency(portfolioTotals.currentValue, config.baseCurrency) },
+            {
+              label: 'Ganancia / pérdida',
+              value: `${portfolioGainLoss >= 0 ? '+' : ''}${formatCurrency(portfolioGainLoss, config.baseCurrency)}`,
+              tone: portfolioGainLoss >= 0 ? 'positive' : 'negative',
+            },
+            {
+              label: 'Variación',
+              value: `${portfolioGainLossPct >= 0 ? '+' : ''}${portfolioGainLossPct.toFixed(2)}%`,
+              tone: portfolioGainLossPct >= 0 ? 'positive' : 'negative',
+            },
+          ],
+        }}
         downloadSlot={<ExportPDFButton results={results} trm={trm} />}
       />
 

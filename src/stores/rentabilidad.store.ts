@@ -6,18 +6,26 @@ import type { Config, Investment, Transaction, Snapshot, RentabilidadStoreData }
 import { DEFAULT_PILLARS, DEFAULT_ENTITIES, SUPPORTED_CURRENCIES } from '@/lib/constants'
 import { rentabilidadApi } from '@/services/api/rentabilidad.api'
 
-const DEFAULT_CONFIG: Config = {
-  baseCurrency: 'COP',
-  pillars: DEFAULT_PILLARS,
-  entities: DEFAULT_ENTITIES,
-  currencies: SUPPORTED_CURRENCIES,
-  dashboardSettings: {
-    pillarTargets: {},
-    goldenNumberTarget: undefined,
-  },
+function buildDefaultConfig(baseCurrency = 'COP'): Config {
+  return {
+    baseCurrency,
+    pillars: [...DEFAULT_PILLARS],
+    entities: [...DEFAULT_ENTITIES],
+    currencies: [...SUPPORTED_CURRENCIES],
+    dashboardSettings: {
+      pillarTargets: {},
+      goldenNumberTarget: undefined,
+    },
+  }
 }
 
+const DEFAULT_CONFIG: Config = buildDefaultConfig()
+
 interface RentabilidadStore extends RentabilidadStoreData {
+  activeUserId: string | null
+  isHydratedFromBackend: boolean
+  hydrateStatus: 'idle' | 'loading' | 'ready' | 'error'
+  hydrateError: string | null
   // Config actions
   setBaseCurrency: (currency: string) => void
   addPillar: (name: string) => void
@@ -51,6 +59,8 @@ interface RentabilidadStore extends RentabilidadStoreData {
   syncStatus: 'idle' | 'saving' | 'saved' | 'error'
   lastSyncedAt: string | null
   syncError: string | null
+  prepareForUser: (userId: string, baseCurrency?: string) => void
+  hydrateFromBackend: (userId: string, baseCurrency?: string) => Promise<boolean>
   syncWithBackend: (userId: string) => Promise<boolean>
 }
 
@@ -65,6 +75,10 @@ function nowIso(): string {
 export const useRentabilidadStore = create<RentabilidadStore>()(
   persist(
     (set, get) => ({
+      activeUserId: null,
+      isHydratedFromBackend: false,
+      hydrateStatus: 'idle',
+      hydrateError: null,
       config: DEFAULT_CONFIG,
       investments: [],
       transactions: [],
@@ -73,6 +87,85 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       syncStatus: 'idle',
       lastSyncedAt: null,
       syncError: null,
+
+      prepareForUser: (userId, baseCurrency = 'COP') =>
+        set((s) => {
+          if (!userId || s.activeUserId === userId) return {}
+          return {
+            activeUserId: userId,
+            isHydratedFromBackend: false,
+            hydrateStatus: 'idle',
+            hydrateError: null,
+            config: buildDefaultConfig(baseCurrency),
+            investments: [],
+            transactions: [],
+            snapshots: [],
+            lastUpdated: nowIso(),
+            syncStatus: 'idle',
+            lastSyncedAt: null,
+            syncError: null,
+          }
+        }),
+
+      hydrateFromBackend: async (userId, baseCurrency = 'COP') => {
+        if (!userId) return false
+        const state = get()
+        if (state.activeUserId === userId && state.isHydratedFromBackend) return true
+
+        set((s) => ({
+          ...(s.activeUserId !== userId
+            ? {
+                activeUserId: userId,
+                config: buildDefaultConfig(baseCurrency),
+                investments: [],
+                transactions: [],
+                snapshots: [],
+              }
+            : {}),
+          hydrateStatus: 'loading',
+          hydrateError: null,
+          isHydratedFromBackend: false,
+        }))
+
+        try {
+          const remoteData = await rentabilidadApi.load(userId)
+          const remoteConfig = remoteData?.config || {}
+          const nextConfig = {
+            ...buildDefaultConfig(remoteConfig.baseCurrency || baseCurrency),
+            ...remoteConfig,
+            pillars: Array.isArray(remoteConfig.pillars) && remoteConfig.pillars.length > 0 ? remoteConfig.pillars : DEFAULT_PILLARS,
+            entities: Array.isArray(remoteConfig.entities) && remoteConfig.entities.length > 0 ? remoteConfig.entities : DEFAULT_ENTITIES,
+            currencies: Array.isArray(remoteConfig.currencies) && remoteConfig.currencies.length > 0 ? remoteConfig.currencies : SUPPORTED_CURRENCIES,
+            dashboardSettings: {
+              ...buildDefaultConfig(remoteConfig.baseCurrency || baseCurrency).dashboardSettings,
+              ...(remoteConfig.dashboardSettings || {}),
+              pillarTargets: {
+                ...(remoteConfig.dashboardSettings?.pillarTargets || {}),
+              },
+            },
+          }
+
+          set({
+            activeUserId: userId,
+            isHydratedFromBackend: true,
+            hydrateStatus: 'ready',
+            hydrateError: null,
+            config: nextConfig,
+            investments: Array.isArray(remoteData?.investments) ? remoteData.investments : [],
+            transactions: Array.isArray(remoteData?.transactions) ? remoteData.transactions : [],
+            snapshots: Array.isArray(remoteData?.snapshots) ? remoteData.snapshots : [],
+            lastUpdated: remoteData?.lastUpdated || nowIso(),
+            syncStatus: 'idle',
+            lastSyncedAt: nowIso(),
+            syncError: null,
+          })
+          return true
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'No se pudo cargar tu configuración.'
+          set({ hydrateStatus: 'error', hydrateError: message, isHydratedFromBackend: false })
+          return false
+        }
+      },
 
       // === CONFIG ===
       setBaseCurrency: (currency) =>
@@ -263,7 +356,7 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
 
       clearData: () =>
         set({
-          config: DEFAULT_CONFIG,
+          config: buildDefaultConfig(get().config.baseCurrency),
           investments: [],
           transactions: [],
           snapshots: [],
@@ -276,7 +369,11 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       syncWithBackend: async (userId: string) => {
         if (!userId) return false
 
-        const { config, investments, transactions, snapshots } = get()
+        const state = get()
+        if (state.activeUserId && state.activeUserId !== userId) return false
+        if (!state.isHydratedFromBackend) return false
+
+        const { config, investments, transactions, snapshots } = state
         set({ syncStatus: 'saving', syncError: null })
 
         try {
@@ -295,6 +392,7 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       name: 'mia-rentabilidad',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
+        activeUserId: state.activeUserId,
         config: state.config,
         investments: state.investments,
         transactions: state.transactions,
@@ -319,6 +417,10 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
             },
           },
         },
+        activeUserId: persistedState?.activeUserId || null,
+        isHydratedFromBackend: false,
+        hydrateStatus: 'idle',
+        hydrateError: null,
         investments: persistedState?.investments || currentState.investments,
         transactions: persistedState?.transactions || currentState.transactions,
         snapshots: persistedState?.snapshots || currentState.snapshots,

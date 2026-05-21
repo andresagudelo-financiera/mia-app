@@ -2,6 +2,7 @@
 
 
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import type { ElementType } from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -12,6 +13,8 @@ import StatusBadge from '@/components/admin/StatusBadge'
 import { formatDate, formatRelativeTime } from '@/lib/formatters'
 
 export default function AdminUserDetailPage() {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'admin'
   const params = useParams<{ id: string }>()
   const userId = params.id
   const [user, setUser] = useState<AdminUserDetail | null>(null)
@@ -206,10 +209,11 @@ export default function AdminUserDetailPage() {
         <div className="mb-5 flex items-center justify-between gap-4">
           <div>
             <h3 className="font-heading text-xl font-bold text-mia-cream">Accesos del usuario</h3>
-            <p className="text-sm text-neutral">Asigna, cambia o revoca accesos por calculadora. El acceso pago queda como pago manual hasta integrar pasarela.</p>
+            <p className="text-sm text-neutral">{isAdmin ? 'Asigna, cambia o revoca accesos por calculadora. El acceso pago queda como pago manual hasta integrar pasarela.' : 'Modo coach/MS: consulta accesos sin modificarlos.'}</p>
           </div>
         </div>
 
+        {isAdmin && (
         <div className="mb-6 grid gap-3 rounded-2xl border border-mia-border bg-mia-surface/30 p-4 md:grid-cols-[1fr_160px_130px_auto]">
           <select value={grantSimulatorId} onChange={e => setGrantSimulatorId(e.target.value)} className="rounded-xl border border-mia-border bg-mia-surface px-4 py-3 text-sm text-mia-cream">
             {simulators.map(sim => <option key={sim.id} value={sim.id}>{sim.name}</option>)}
@@ -225,6 +229,7 @@ export default function AdminUserDetailPage() {
             <Plus className="h-4 w-4" /> Asignar
           </button>
         </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -234,7 +239,7 @@ export default function AdminUserDetailPage() {
                 <th className="px-4 py-3 text-left">Tipo de acceso</th>
                 <th className="px-4 py-3 text-left">Estado</th>
                 <th className="px-4 py-3 text-left">Expira</th>
-                <th className="px-4 py-3 text-left">Acción</th>
+                {isAdmin && <th className="px-4 py-3 text-left">Acción</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-mia-border">
@@ -242,26 +247,32 @@ export default function AdminUserDetailPage() {
                 <tr key={access.id}>
                   <td className="px-4 py-4 text-mia-cream">{access.simulatorName || access.toolName || access.simulatorSlug || 'Simulador'}</td>
                   <td className="px-4 py-4">
-                    <select value={access.accessType} onChange={e => updateAccessType(access, e.target.value as SimulatorAccessType)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
-                      <option value="free">free</option>
-                      <option value="demo">demo</option>
-                      <option value="paid">paid</option>
-                      <option value="admin_only">admin_only</option>
-                    </select>
+                    {isAdmin ? (
+                      <select value={access.accessType} onChange={e => updateAccessType(access, e.target.value as SimulatorAccessType)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
+                        <option value="free">free</option>
+                        <option value="demo">demo</option>
+                        <option value="paid">paid</option>
+                        <option value="admin_only">admin_only</option>
+                      </select>
+                    ) : (
+                      <StatusBadge value={access.accessType} />
+                    )}
                     {access.accessType === 'paid' && <p className="mt-1 text-[10px] text-neutral">Pago manual</p>}
                   </td>
                   <td className="px-4 py-4"><StatusBadge value={access.status} /></td>
                   <td className="px-4 py-4 text-neutral">{access.expiresAt ? formatDate(access.expiresAt) : 'Sin expiración'}</td>
-                  <td className="px-4 py-4">
-                    <select value={access.status} onChange={e => updateAccessStatus(access, e.target.value as UserAccessStatus)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
-                      <option value="active">active</option>
-                      <option value="expired">expired</option>
-                      <option value="revoked">revoked</option>
-                    </select>
-                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-4">
+                      <select value={access.status} onChange={e => updateAccessStatus(access, e.target.value as UserAccessStatus)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
+                        <option value="active">active</option>
+                        <option value="expired">expired</option>
+                        <option value="revoked">revoked</option>
+                      </select>
+                    </td>
+                  )}
                 </tr>
               ))}
-              {(user.accesses || []).length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-neutral">Este usuario aún no tiene accesos asignados.</td></tr>}
+              {(user.accesses || []).length === 0 && <tr><td colSpan={isAdmin ? 5 : 4} className="px-4 py-10 text-center text-neutral">Este usuario aún no tiene accesos asignados.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -414,7 +425,7 @@ function CalculatorResponses({
               {data?.status && <StatusBadge value={data.status} />}
               {access?.status && <StatusBadge value={access.status} />}
             </div>
-            <h3 className="font-heading text-2xl font-bold text-mia-cream">Respuestas y resultado</h3>
+            <h3 className="font-heading text-2xl font-bold text-mia-cream">Detalle del lead: respuestas y resultado</h3>
             <p className="mt-1 text-sm text-neutral">{title}: información guardada por el simulador.</p>
           </div>
           <div className="rounded-xl border border-mia-border bg-mia-surface/40 px-4 py-3 text-xs text-neutral md:text-right">
@@ -450,7 +461,7 @@ function CalculatorResponses({
             {access?.accessType && <StatusBadge value={access.accessType} />}
             {access?.status && <StatusBadge value={access.status} />}
           </div>
-          <h3 className="font-heading text-2xl font-bold text-mia-cream">Respuestas y actividad por calculadora</h3>
+          <h3 className="font-heading text-2xl font-bold text-mia-cream">Detalle del lead: respuestas y actividad por calculadora</h3>
           <p className="mt-1 text-sm text-neutral">
             {title}: configuración, respuestas capturadas y movimientos guardados por autosync.
           </p>

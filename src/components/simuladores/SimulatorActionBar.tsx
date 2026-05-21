@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CalendarCheck, Check, Copy, Download, Instagram, MessageCircle, Send, Share2 } from 'lucide-react'
+import { CalendarCheck, Check, Copy, Download, Instagram, Send, Share2 } from 'lucide-react'
 import { pushEvent } from '@/lib/analytics'
 
 type Props = {
@@ -10,26 +10,46 @@ type Props = {
   description?: string
   result?: unknown
   fileBaseName: string
+  showAdvisor?: boolean
   advisorMessage?: string
   shareMessage?: string
   disabledDownloadMessage?: string
   downloadSlot?: ReactNode
+  instagramStory?: InstagramStoryConfig
 }
 
 const ADVISOR_PHONE = '573205389740'
+const DEFAULT_INSTAGRAM_MENTION = '@yosoyclaudiauribe'
+
+type InstagramStoryMetric = {
+  label: string
+  value: string
+  tone?: 'default' | 'positive' | 'negative'
+}
+
+type InstagramStoryConfig = {
+  title: string
+  subtitle?: string
+  metrics: InstagramStoryMetric[]
+  mention?: string
+  footer?: string
+}
 
 export default function SimulatorActionBar({
   title,
   description,
   result,
   fileBaseName,
+  showAdvisor = true,
   advisorMessage,
   shareMessage,
   disabledDownloadMessage = 'Calcula y guarda tus resultados para activar la descarga.',
   downloadSlot,
+  instagramStory,
 }: Props) {
   const [copied, setCopied] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [generatingStory, setGeneratingStory] = useState(false)
   const hasResult = Boolean(result)
 
   const currentUrl = typeof window === 'undefined' ? '' : window.location.href
@@ -87,24 +107,55 @@ export default function SimulatorActionBar({
     }
   }
 
+  async function downloadInstagramStory() {
+    if (!instagramStory && !result) {
+      alert(disabledDownloadMessage)
+      return
+    }
+
+    setGeneratingStory(true)
+    try {
+      await downloadStoryImage({
+        title,
+        fileBaseName,
+        story: instagramStory || {
+          title,
+          subtitle: description,
+          mention: DEFAULT_INSTAGRAM_MENTION,
+          metrics: flattenResult(result).slice(0, 4).map(([label, value]) => ({ label, value })),
+        },
+      })
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`Etiqueta a ${instagramStory?.mention || DEFAULT_INSTAGRAM_MENTION} en tu historia.`).catch(() => undefined)
+      }
+      pushEvent('calculator_shared', { method: 'instagram_story_image', calculator: fileBaseName })
+    } finally {
+      setGeneratingStory(false)
+    }
+  }
+
   return (
     <div className="mt-6 rounded-3xl border border-mia-border bg-mia-surface/25 p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="font-heading text-lg font-bold text-mia-cream">¿Qué quieres hacer ahora?</p>
-          <p className="text-sm text-neutral">Agenda asesoría, descarga tus resultados o compártelos con alguien.</p>
+          <p className="text-sm text-neutral">
+            {showAdvisor ? 'Agenda asesoría, descarga tus resultados o compártelos con alguien.' : 'Descarga tus resultados o compártelos con alguien.'}
+          </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <a
-            href={links.advisor}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-sm font-bold text-white shadow-lg shadow-mf-coral/20 transition hover:opacity-90"
-          >
-            <CalendarCheck className="h-4 w-4" />
-            Agendar asesoría
-          </a>
+          {showAdvisor && (
+            <a
+              href={links.advisor}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-sm font-bold text-white shadow-lg shadow-mf-coral/20 transition hover:opacity-90"
+            >
+              <CalendarCheck className="h-4 w-4" />
+              Agendar asesoría
+            </a>
+          )}
 
           {downloadSlot ? (
             downloadSlot
@@ -149,21 +200,122 @@ export default function SimulatorActionBar({
           {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
           {copied ? 'Copiado' : 'Copiar enlace'}
         </button>
-        <a
-          href={links.instagram}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={copyShareText}
+        <button
+          type="button"
+          onClick={downloadInstagramStory}
+          disabled={generatingStory}
           className="inline-flex items-center justify-center gap-2 rounded-xl border border-mia-border bg-mia-card/70 px-3 py-2 text-xs font-bold text-neutral transition hover:border-pink-400/40 hover:text-pink-300"
         >
-          <Instagram className="h-4 w-4" /> Compartir en Instagram
-        </a>
+          <Instagram className="h-4 w-4" /> {generatingStory ? 'Generando historia...' : 'Historia de Instagram'}
+        </button>
       </div>
       <p className="mt-2 text-xs text-neutral/80">
-        Nota: Instagram no permite prellenar publicaciones desde web; copiamos el texto para que puedas pegarlo en historias o mensajes.
+        Nota: Instagram no permite publicar historias directamente desde web. Generamos una imagen 9:16 lista para subir y copiamos la indicación para etiquetar a {instagramStory?.mention || DEFAULT_INSTAGRAM_MENTION}.
       </p>
     </div>
   )
+}
+
+async function downloadStoryImage({ title, fileBaseName, story }: { title: string; fileBaseName: string; story: InstagramStoryConfig }) {
+  const width = 1080
+  const height = 1920
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const gradient = ctx.createLinearGradient(0, 0, width, height)
+  gradient.addColorStop(0, '#FFF8ED')
+  gradient.addColorStop(0.42, '#FFE2CC')
+  gradient.addColorStop(1, '#F04E37')
+  ctx.fillStyle = gradient
+  ctx.fillRect(0, 0, width, height)
+
+  ctx.fillStyle = 'rgba(255,255,255,0.82)'
+  roundRect(ctx, 72, 120, width - 144, height - 240, 56)
+  ctx.fill()
+
+  ctx.fillStyle = '#F04E37'
+  ctx.font = '800 34px Arial'
+  ctx.fillText('MONEYFLOW BY MIA', 120, 210)
+
+  ctx.fillStyle = '#1F1B18'
+  wrapCanvasText(ctx, story.title || title, 120, 340, width - 240, 72, '900 82px Arial')
+
+  if (story.subtitle) {
+    ctx.fillStyle = '#6F6761'
+    wrapCanvasText(ctx, story.subtitle, 120, 510, width - 240, 36, '500 34px Arial')
+  }
+
+  let y = 650
+  story.metrics.slice(0, 4).forEach((metric) => {
+    ctx.fillStyle = '#FFFDF8'
+    roundRect(ctx, 120, y, width - 240, 190, 34)
+    ctx.fill()
+    ctx.strokeStyle = metric.tone === 'negative' ? 'rgba(225,68,68,0.35)' : metric.tone === 'positive' ? 'rgba(47,163,107,0.35)' : 'rgba(240,78,55,0.22)'
+    ctx.lineWidth = 3
+    ctx.stroke()
+
+    ctx.fillStyle = '#7C746E'
+    ctx.font = '800 27px Arial'
+    ctx.fillText(metric.label.toUpperCase(), 158, y + 62)
+
+    ctx.fillStyle = metric.tone === 'negative' ? '#E14444' : metric.tone === 'positive' ? '#2FA36B' : '#1F1B18'
+    ctx.font = '900 50px Arial'
+    wrapCanvasText(ctx, metric.value, 158, y + 128, width - 316, 52, '900 50px Arial', 1)
+    y += 220
+  })
+
+  ctx.fillStyle = '#1F1B18'
+  ctx.font = '900 44px Arial'
+  ctx.fillText(`Etiqueta a ${story.mention || DEFAULT_INSTAGRAM_MENTION}`, 120, height - 250)
+  ctx.fillStyle = '#6F6761'
+  wrapCanvasText(ctx, story.footer || 'Comparte tu avance financiero en historias y reta a alguien a medir su rentabilidad real.', 120, height - 190, width - 240, 32, '500 30px Arial')
+
+  const link = document.createElement('a')
+  link.download = `${fileBaseName}-historia-instagram-${new Date().toISOString().slice(0, 10)}.png`
+  link.href = canvas.toDataURL('image/png')
+  link.click()
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.arcTo(x + width, y, x + width, y + height, radius)
+  ctx.arcTo(x + width, y + height, x, y + height, radius)
+  ctx.arcTo(x, y + height, x, y, radius)
+  ctx.arcTo(x, y, x + width, y, radius)
+  ctx.closePath()
+}
+
+function wrapCanvasText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  font: string,
+  maxLines = 3,
+) {
+  ctx.font = font
+  const words = String(text).split(/\s+/)
+  let line = ''
+  let lines = 0
+  for (const word of words) {
+    const testLine = line ? `${line} ${word}` : word
+    if (ctx.measureText(testLine).width > maxWidth && line) {
+      ctx.fillText(line, x, y)
+      line = word
+      y += lineHeight
+      lines += 1
+      if (lines >= maxLines) return
+    } else {
+      line = testLine
+    }
+  }
+  if (line && lines < maxLines) ctx.fillText(line, x, y)
 }
 
 async function downloadResultPdf({ title, description, result, fileBaseName }: { title: string; description?: string; result: unknown; fileBaseName: string }) {

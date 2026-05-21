@@ -4,6 +4,8 @@ import { miaAdminGraphQL } from '@/lib/mia-admin-client'
 
 export const dynamic = 'force-dynamic'
 
+const STAFF_PANEL_ROLES = new Set(['admin', 'coach', 'money_strategist'])
+
 type AdminGraphQLBody = {
   query?: string
   variables?: Record<string, unknown>
@@ -22,7 +24,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ errors: [{ message: 'Token admin expirado.', code: 'ADMIN_TOKEN_EXPIRED' }] }, { status: 401 })
   }
 
-  if (token?.role !== 'admin' || token.isActive !== true || !token.adminToken) {
+  if (!token || !STAFF_PANEL_ROLES.has(String(token.role || '')) || token.isActive !== true || !token.adminToken) {
     return NextResponse.json({ errors: [{ message: 'No autorizado', code: 'UNAUTHORIZED' }] }, { status: 401 })
   }
 

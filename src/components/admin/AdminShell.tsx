@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { BarChart3, BookOpen, Calculator, LayoutDashboard, Trophy, UserCircle, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { isAcademyEnabled } from '@/lib/feature-flags'
 
 const links = [
   { href: '/admin', label: 'Resumen', icon: LayoutDashboard },
@@ -16,6 +18,8 @@ const links = [
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'admin'
 
   return (
     <div className="min-h-screen bg-mia-black pt-16">
@@ -31,7 +35,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </div>
           </div>
           <nav className="flex gap-2 overflow-x-auto">
-            {links.map(link => {
+            {links.filter(link => {
+              if (!isAdmin && !['/admin/usuarios', '/admin/perfil'].includes(link.href)) return false
+              return isAcademyEnabled() || link.href !== '/admin/academia'
+            }).map(link => {
               const Icon = link.icon
               const active = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href))
               return (
