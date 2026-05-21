@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Roboto, Syne } from 'next/font/google'
 import Script from 'next/script'
 import AnalyticsPageView from '@/components/analytics/AnalyticsPageView'
+import ClarityProvider from '@/components/analytics/ClarityProvider'
 import './globals.css'
 
 const syne = Syne({
@@ -111,16 +112,7 @@ gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });`}
           </>
         )}
 
-        {/* Microsoft Clarity */}
-        {CLARITY_ID && (
-          <Script id="clarity" strategy="afterInteractive">
-            {`(function(c,l,a,r,i,t,y){
-c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-})(window, document, "clarity", "script", "${CLARITY_ID}");`}
-          </Script>
-        )}
+        <ClarityProvider projectId={CLARITY_ID} />
 
         {/* Meta Pixel */}
         {META_PIXEL_ID && (
