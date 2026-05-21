@@ -149,7 +149,7 @@ export const userApi = {
     };
   },
 
-  async register(data: { name: string; email: string; phone?: string; baseCurrency?: string; password: string }, toolName = 'rentabilidad') {
+  async register(data: { name: string; email: string; phone?: string; baseCurrency?: string; password: string; utm_source?: string | null }, toolName = 'rentabilidad') {
     const response = await fetch('/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

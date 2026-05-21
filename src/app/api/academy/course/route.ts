@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isAcademyEnabled } from '@/lib/feature-flags'
 import { ACADEMY_COURSE_FIELDS, postGraphQL } from '../graphql'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,7 @@ const GET_COURSE = `
 `
 
 export async function GET(request: Request) {
+  if (!isAcademyEnabled()) return NextResponse.json({ error: 'Academia en construcción.' }, { status: 404 })
   const { searchParams } = new URL(request.url)
   const slug = searchParams.get('slug')
   const userId = searchParams.get('userId') || undefined

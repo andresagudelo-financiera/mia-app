@@ -24,6 +24,8 @@ import { formatCurrency } from '@/lib/formatters'
 import { AlertTriangle, BarChart3, CheckCircle2, CircleDollarSign, Target, TrendingUp } from 'lucide-react'
 
 const COLORS = ['#F04E37', '#FF8C42', '#C9A84C', '#5C8BC4', '#3ABFAA', '#C4488A', '#7B52C4']
+const CHART_GRID = 'rgb(var(--color-mia-border))'
+const CHART_MUTED = 'rgb(var(--color-neutral))'
 
 interface Props {
   results: InvestmentResult[]
@@ -78,32 +80,34 @@ export default function DashboardPanel({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-[2rem] border border-mf-coral/20 bg-gradient-to-br from-mia-surface via-mia-black to-[#1e1714] p-5 md:p-6 shadow-soft">
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-5 mb-6">
+      <div className="relative overflow-hidden rounded-[2rem] border border-mia-border bg-mia-card p-5 text-mia-cream shadow-[0_24px_80px_rgba(240,78,55,0.10)] dark:shadow-[0_24px_80px_rgba(0,0,0,0.35)] md:p-6">
+        <div className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-mf-coral/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 left-1/3 h-80 w-80 rounded-full bg-mf-orange/10 blur-3xl" />
+        <div className="relative flex flex-col gap-5 mb-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-mf-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-mf-coral border border-mf-coral/20">
+            <span className="inline-flex items-center gap-2 rounded-full border border-mf-coral/25 bg-mf-coral/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-mf-coral">
               <BarChart3 className="w-3.5 h-3.5" /> Dashboard ejecutivo
             </span>
-            <h3 className="font-heading text-2xl md:text-3xl font-bold text-mia-cream mt-3">
+            <h3 className="mt-3 font-heading text-2xl font-black text-mia-cream md:text-3xl">
               Visión patrimonial y rentabilidad real
             </h3>
-            <p className="text-sm text-neutral max-w-3xl mt-2">
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral">
               Consolidado por pilares, avance contra objetivos configurables, alertas de calidad de datos y evolución anual del portafolio.
             </p>
           </div>
 
-          <div className="rounded-2xl border border-amber-400/20 bg-amber-300/10 p-4 min-w-[230px]">
-            <p className="text-xs text-amber-100/80">Avance al Número Dorado</p>
-            <p className="font-heading text-2xl font-bold text-amber-100 mt-1">
+          <div className="min-w-[230px] rounded-2xl border border-amber-300/35 bg-mia-surface/70 p-4 shadow-[0_16px_45px_rgba(245,196,94,0.18)]">
+            <p className="text-xs font-bold text-amber-700 dark:text-amber-300">Avance al Número Dorado</p>
+            <p className="mt-1 font-heading text-2xl font-black text-mia-cream">
               {totals.goldenNumberProgressPct !== undefined ? `${totals.goldenNumberProgressPct.toFixed(1)}%` : 'Configurar'}
             </p>
-            <div className="h-2 rounded-full bg-mia-black/50 overflow-hidden mt-3">
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-mia-border/70">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-amber-300 to-mf-coral"
                 style={{ width: `${totals.goldenNumberProgressPct ?? 0}%` }}
               />
             </div>
-            <p className="text-[11px] text-neutral mt-2">
+            <p className="mt-2 text-[11px] text-neutral">
               {totals.goldenNumberGap !== undefined
                 ? `Faltan ${formatCurrency(totals.goldenNumberGap, baseCurrency)}`
                 : 'Define esta meta en Configuración.'}
@@ -111,7 +115,7 @@ export default function DashboardPanel({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="relative grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <DashboardMetric icon={CircleDollarSign} label="Capital aportado" value={formatCurrency(totals.totalInvested, baseCurrency)} />
           <DashboardMetric icon={Target} label="Valor actual" value={formatCurrency(totals.currentValue, baseCurrency)} accent="blue" />
           <DashboardMetric
@@ -132,7 +136,7 @@ export default function DashboardPanel({
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
-        <div className="xl:col-span-3 glass rounded-2xl border border-mia-border p-5">
+        <div className="xl:col-span-3 rounded-3xl border border-mia-border bg-mia-card p-5 shadow-[0_18px_60px_rgba(31,27,24,0.06)]">
           <div className="flex items-center justify-between gap-4 mb-5">
             <div>
               <h4 className="font-heading font-semibold text-mia-cream">Pilares: capital vs rendimientos</h4>
@@ -141,9 +145,9 @@ export default function DashboardPanel({
           </div>
           <ResponsiveContainer width="100%" height={310}>
             <BarChart data={pillarChartData} margin={{ left: 0, right: 10, bottom: 54 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="name" tick={{ fill: '#A1A1AA', fontSize: 11 }} angle={-25} textAnchor="end" interval={0} height={72} />
-              <YAxis tick={{ fill: '#A1A1AA', fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1_000_000}M`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+              <XAxis dataKey="name" tick={{ fill: CHART_MUTED, fontSize: 11 }} angle={-25} textAnchor="end" interval={0} height={72} />
+              <YAxis tick={{ fill: CHART_MUTED, fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1_000_000}M`} />
               <Tooltip content={<CurrencyTooltip currency={baseCurrency} />} />
               <Bar dataKey="capital" stackId="a" name="Capital aportado" fill="#5C8BC4" radius={[0, 0, 6, 6]} />
               <Bar dataKey="rendimiento" stackId="a" name="Rendimiento" fill="#F04E37" radius={[6, 6, 0, 0]} />
@@ -151,7 +155,7 @@ export default function DashboardPanel({
           </ResponsiveContainer>
         </div>
 
-        <div className="xl:col-span-2 glass rounded-2xl border border-mia-border p-5">
+        <div className="xl:col-span-2 rounded-3xl border border-mia-border bg-mia-card p-5 shadow-[0_18px_60px_rgba(31,27,24,0.06)]">
           <h4 className="font-heading font-semibold text-mia-cream mb-1">Alertas y calidad de datos</h4>
           <p className="text-xs text-neutral mb-4">Validaciones para evitar errores como fórmulas rotas, TRM faltante o cortes incompletos.</p>
           <div className="space-y-3">
@@ -162,10 +166,10 @@ export default function DashboardPanel({
               return (
                 <div
                   key={check.id}
-                  className={`rounded-2xl border p-3 ${critical ? 'border-loss/30 bg-loss/10' : warning ? 'border-amber-400/30 bg-amber-400/10' : 'border-mia-blue/20 bg-mia-blue/10'}`}
+                  className={`rounded-2xl border p-3 ${critical ? 'border-loss/25 bg-loss/5' : warning ? 'border-amber-300/40 bg-amber-400/10' : 'border-mia-blue/25 bg-mia-blue/10'}`}
                 >
                   <div className="flex items-start gap-2">
-                    <Icon className={`w-4 h-4 mt-0.5 ${critical ? 'text-loss' : warning ? 'text-amber-300' : 'text-mia-blue'}`} />
+                    <Icon className={`w-4 h-4 mt-0.5 ${critical ? 'text-loss' : warning ? 'text-amber-700 dark:text-amber-300' : 'text-mia-blue'}`} />
                     <div>
                       <p className="text-sm font-semibold text-mia-cream">{check.title}</p>
                       <p className="text-xs text-neutral mt-1">{check.description}</p>
@@ -178,15 +182,15 @@ export default function DashboardPanel({
         </div>
       </div>
 
-      <div className="glass rounded-2xl border border-mia-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-mia-border">
+      <div className="overflow-hidden rounded-3xl border border-mia-border bg-mia-card shadow-[0_18px_60px_rgba(31,27,24,0.06)]">
+        <div className="border-b border-mia-border px-5 py-4">
           <h4 className="font-heading font-semibold text-mia-cream">Resumen por pilar</h4>
           <p className="text-xs text-neutral">Objetivos configurables, brecha y progreso para priorizar decisiones.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-mia-surface/50">
+              <tr className="bg-mia-surface/70">
                 {['Pilar', 'Aportado', 'Valor actual', 'Rendimiento', 'ROI', 'Objetivo', 'Faltante', 'Avance'].map((header) => (
                   <th key={header} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-neutral whitespace-nowrap">{header}</th>
                 ))}
@@ -194,7 +198,7 @@ export default function DashboardPanel({
             </thead>
             <tbody>
               {pillarRows.map((row, index) => (
-                <tr key={row.pilar} className={`border-t border-mia-border ${index % 2 ? 'bg-mia-surface/10' : ''}`}>
+                <tr key={row.pilar} className={`border-t border-mia-border ${index % 2 ? 'bg-mia-surface/40' : ''}`}>
                   <td className="px-4 py-4 font-semibold text-mia-cream whitespace-nowrap">{row.pilar}</td>
                   <td className="px-4 py-4 text-mia-cream whitespace-nowrap">{formatCurrency(row.totalInvested, baseCurrency)}</td>
                   <td className="px-4 py-4 text-mia-cream whitespace-nowrap">{formatCurrency(row.currentValue, baseCurrency)}</td>
@@ -204,8 +208,8 @@ export default function DashboardPanel({
                   <td className="px-4 py-4 text-mia-cream whitespace-nowrap">{row.gap !== undefined ? formatCurrency(row.gap, baseCurrency) : '—'}</td>
                   <td className="px-4 py-4 min-w-[150px]">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 flex-1 rounded-full bg-mia-surface overflow-hidden">
-                        <div className="h-full rounded-full bg-gradient-to-r from-mf-coral to-amber-300" style={{ width: `${row.progressPct ?? 0}%` }} />
+                      <div className="h-2 flex-1 rounded-full bg-mia-border/70 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-mf-coral to-mf-orange" style={{ width: `${row.progressPct ?? 0}%` }} />
                       </div>
                       <span className="text-xs text-neutral w-12 text-right">{row.progressPct !== undefined ? `${row.progressPct.toFixed(0)}%` : '—'}</span>
                     </div>
@@ -218,14 +222,14 @@ export default function DashboardPanel({
       </div>
 
       {annualSeries.length > 1 && (
-        <div className="glass rounded-2xl border border-mia-border p-5">
+        <div className="rounded-3xl border border-mia-border bg-mia-card p-5 shadow-[0_18px_60px_rgba(31,27,24,0.06)]">
           <h4 className="font-heading font-semibold text-mia-cream mb-1">Evolución anual por pilar</h4>
           <p className="text-xs text-neutral mb-5">Toma el último corte disponible de cada año para mostrar crecimiento histórico.</p>
           <ResponsiveContainer width="100%" height={310}>
             <LineChart data={annualSeries} margin={{ left: 0, right: 20, bottom: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="year" tick={{ fill: '#A1A1AA', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#A1A1AA', fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1_000_000}M`} />
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} />
+              <XAxis dataKey="year" tick={{ fill: CHART_MUTED, fontSize: 11 }} />
+              <YAxis tick={{ fill: CHART_MUTED, fontSize: 11 }} tickFormatter={(value) => `${Number(value) / 1_000_000}M`} />
               <Tooltip content={<CurrencyTooltip currency={baseCurrency} />} />
               {pillars.map((pillar, index) => (
                 <Line key={pillar} type="monotone" dataKey={pillar} stroke={COLORS[index % COLORS.length]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
@@ -250,17 +254,17 @@ function DashboardMetric({ icon: Icon, label, value, sub, accent = 'coral' }: {
     blue: 'text-mia-blue bg-mia-blue/10 border-mia-blue/20',
     gain: 'text-gain bg-gain/10 border-gain/20',
     loss: 'text-loss bg-loss/10 border-loss/20',
-    amber: 'text-amber-200 bg-amber-300/10 border-amber-300/20',
+    amber: 'text-amber-700 dark:text-amber-300 bg-amber-400/10 border-amber-300/35',
   }[accent]
 
   return (
-    <div className="rounded-2xl border border-mia-border bg-mia-black/35 p-4">
+    <div className="rounded-2xl border border-mia-border bg-mia-surface/70 p-4 shadow-[0_14px_45px_rgba(31,27,24,0.06)] backdrop-blur">
       <div className={`inline-flex p-2 rounded-xl border ${accentClass}`}>
         <Icon className="w-4 h-4" />
       </div>
-      <p className="text-[11px] uppercase tracking-[0.14em] text-neutral mt-3">{label}</p>
-      <p className="font-heading text-lg font-bold text-mia-cream mt-1 leading-tight">{value}</p>
-      {sub && <p className="text-xs text-neutral mt-1">{sub}</p>}
+      <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral">{label}</p>
+      <p className="mt-1 font-heading text-lg font-black leading-tight text-mia-cream">{value}</p>
+      {sub && <p className="mt-1 text-xs text-neutral">{sub}</p>}
     </div>
   )
 }
@@ -268,7 +272,7 @@ function DashboardMetric({ icon: Icon, label, value, sub, accent = 'coral' }: {
 function CurrencyTooltip({ active, payload, label, currency }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-2xl border border-mia-border bg-mia-black/95 p-3 shadow-soft">
+    <div className="rounded-2xl border border-mia-border bg-mia-card p-3 shadow-[0_18px_50px_rgba(31,27,24,0.14)]">
       <p className="text-sm font-semibold text-mia-cream mb-2">{label}</p>
       <div className="space-y-1">
         {payload.map((item: any) => (

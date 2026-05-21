@@ -7,6 +7,17 @@ const SYNC_DATA = gql`
   }
 `;
 
+const GET_RENTABILIDAD_DATA = gql`
+  query GetRentabilidadData($userId: String!) {
+    rentabilidadData(userId: $userId) {
+      config
+      investments
+      transactions
+      snapshots
+    }
+  }
+`;
+
 const GET_INVESTMENTS = gql`
   query GetInvestments($userId: String!) {
     investments(userId: $userId) {
@@ -81,6 +92,15 @@ function uniqueById(items: any[]) {
 }
 
 export const rentabilidadApi = {
+  async load(userId: string) {
+    try {
+      const response: any = await apiClient.request(GET_RENTABILIDAD_DATA, { userId });
+      return response.rentabilidadData;
+    } catch (error) {
+      return handleApiError(error);
+    }
+  },
+
   async sync(userId: string, data: any) {
     try {
       const normalizedData = normalizeSyncPayload(data);

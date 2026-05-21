@@ -2,6 +2,7 @@
 
 
 import Link from 'next/link'
+import { useSession } from 'next-auth/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
@@ -9,8 +10,11 @@ import type { AdminUserDetail, AdminUserSummary, Simulator, SimulatorAccessType,
 import StatusBadge from '@/components/admin/StatusBadge'
 import { formatDate, formatRelativeTime } from '@/lib/formatters'
 import AdminCreateUserModal from '@/components/admin/AdminCreateUserModal'
+import GhlAssignedLeadsPanel from '@/components/admin/GhlAssignedLeadsPanel'
 
 export default function AdminUsersPage() {
+  const { data: session, status: sessionStatus } = useSession()
+  const isAdmin = session?.user?.role === 'admin'
   const [users, setUsers] = useState<AdminUserSummary[]>([])
   const [simulators, setSimulators] = useState<Simulator[]>([])
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
@@ -30,6 +34,18 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     let active = true
+
+    if (sessionStatus === 'loading') return () => { active = false }
+
+    if (!isAdmin) {
+      setUsers([])
+      setSimulators([])
+      setSelectedUserIds([])
+      setError(null)
+      setLoading(false)
+      return () => { active = false }
+    }
+
     async function load() {
       try {
         setLoading(true)
@@ -49,7 +65,7 @@ export default function AdminUsersPage() {
     }
     const timer = setTimeout(load, 250)
     return () => { active = false; clearTimeout(timer) }
-  }, [search, role, status])
+  }, [isAdmin, role, search, sessionStatus, status])
 
   const simulatorOptions = useMemo(() => getSimulatorOptions(users, simulators), [users, simulators])
 
@@ -224,8 +240,8 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="font-heading text-3xl font-bold text-mia-cream">Usuarios</h2>
-          <p className="text-sm text-neutral">Los administradores son usuarios normales con <strong>role: admin</strong>.</p>
+          <h2 className="font-heading text-3xl font-bold text-mia-cream">{isAdmin ? 'Usuarios' : 'Mis leads asignados'}</h2>
+          <p className="text-sm text-neutral">{isAdmin ? 'Administra leads, accesos y respuestas.' : 'Modo coach/MS: consulta leads y respuestas guardadas sin editar accesos.'}</p>
         </div>
         <div className="flex flex-col items-start gap-3 sm:items-end">
           <div className="flex gap-2 text-xs text-neutral">
@@ -235,28 +251,33 @@ export default function AdminUsersPage() {
             <span>·</span>
             <span>{totals.demos} demos</span>
           </div>
-          <div className="flex flex-wrap gap-3 sm:items-end">
-            <button
-              type="button"
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-mf-coral/30 bg-mf-coral/10 px-4 py-2 text-xs font-bold text-mf-coral transition-opacity hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" />
-              Nuevo Usuario
-            </button>
-            <button
-              type="button"
-              onClick={downloadExcelReport}
-              disabled={exporting}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {exporting ? 'Generando reporte...' : 'Descargar Excel'}
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex flex-wrap gap-3 sm:items-end">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-mf-coral/30 bg-mf-coral/10 px-4 py-2 text-xs font-bold text-mf-coral transition-opacity hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo Usuario
+              </button>
+              <button
+                type="button"
+                onClick={downloadExcelReport}
+                disabled={exporting}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {exporting ? 'Generando reporte...' : 'Descargar Excel'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
+      {!isAdmin && <GhlAssignedLeadsPanel />}
+
+      {isAdmin && (<>
       <div className="glass rounded-2xl border border-mia-border p-4">
         <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_220px]">
           <label className="relative">
@@ -272,6 +293,8 @@ export default function AdminUsersPage() {
             <option value="all">Todos los roles</option>
             <option value="user">Usuarios</option>
             <option value="admin">Admins</option>
+            <option value="coach">Coaches</option>
+            <option value="money_strategist">Money Strategists</option>
           </select>
           <select value={status} onChange={e => setStatus(e.target.value as UserStatus | 'all')} className="rounded-xl border border-mia-border bg-mia-surface px-4 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral">
             <option value="all">Todos los estados</option>
@@ -290,6 +313,7 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {isAdmin && (
       <div className="glass rounded-2xl border border-mia-border p-4">
         <div className="mb-4 flex flex-col gap-1">
           <h3 className="font-heading text-lg font-bold text-mia-cream">Accesos por usuario y calculadora</h3>
@@ -353,17 +377,21 @@ export default function AdminUsersPage() {
           </div>
         </div>
       </div>
+      )}
 
       {error && <div className="rounded-2xl border border-mf-orange/30 bg-mf-orange/10 p-4 text-sm text-mf-orange">{error}</div>}
+
 
       <div className="glass overflow-hidden rounded-2xl border border-mia-border">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-mia-surface/60 text-xs uppercase tracking-wider text-neutral">
               <tr>
-                <th className="px-4 py-3 text-left">
-                  <input type="checkbox" checked={filteredUsers.length > 0 && filteredUsers.every(user => selectedUserIds.includes(user.id))} onChange={toggleAllFilteredUsers} aria-label="Seleccionar usuarios visibles" />
-                </th>
+                {isAdmin && (
+                  <th className="px-4 py-3 text-left">
+                    <input type="checkbox" checked={filteredUsers.length > 0 && filteredUsers.every(user => selectedUserIds.includes(user.id))} onChange={toggleAllFilteredUsers} aria-label="Seleccionar usuarios visibles" />
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left">Usuario</th>
                 <th className="px-4 py-3 text-left">Rol</th>
                 <th className="px-4 py-3 text-left">Estado</th>
@@ -376,9 +404,11 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-mia-border">
               {filteredUsers.map(user => (
                 <tr key={user.id} className="hover:bg-mia-surface/30">
-                  <td className="px-4 py-4">
-                    <input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleUserSelection(user.id)} aria-label={`Seleccionar ${user.email}`} />
-                  </td>
+                  {isAdmin && (
+                    <td className="px-4 py-4">
+                      <input type="checkbox" checked={selectedUserIds.includes(user.id)} onChange={() => toggleUserSelection(user.id)} aria-label={`Seleccionar ${user.email}`} />
+                    </td>
+                  )}
                   <td className="px-4 py-4">
                     <Link href={`/admin/usuarios/${user.id}`} className="font-semibold text-mia-cream hover:text-mf-coral">{user.name}</Link>
                     <p className="text-xs text-neutral">{user.email}</p>
@@ -387,22 +417,28 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-4">
                     <div className="flex flex-col gap-2">
                       <StatusBadge value={user.role || 'user'} />
-                      <select value={user.role || 'user'} onChange={e => changeRole(user, e.target.value as UserRole)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                      </select>
+                      {isAdmin && (
+                        <select value={user.role || 'user'} onChange={e => changeRole(user, e.target.value as UserRole)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
+                          <option value="user">user</option>
+                          <option value="admin">admin</option>
+                          <option value="coach">coach</option>
+                          <option value="money_strategist">money_strategist</option>
+                        </select>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-col gap-2">
                       <StatusBadge value={user.status || 'active'} />
-                      <select value={user.status || 'active'} onChange={e => changeStatus(user, e.target.value as UserStatus)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
-                        <option value="active">active</option>
-                        <option value="demo">demo</option>
-                        <option value="paid">paid</option>
-                        <option value="expired">expired</option>
-                        <option value="blocked">blocked</option>
-                      </select>
+                      {isAdmin && (
+                        <select value={user.status || 'active'} onChange={e => changeStatus(user, e.target.value as UserStatus)} className="rounded-lg border border-mia-border bg-mia-surface px-2 py-1 text-xs text-mia-cream">
+                          <option value="active">active</option>
+                          <option value="demo">demo</option>
+                          <option value="paid">paid</option>
+                          <option value="expired">expired</option>
+                          <option value="blocked">blocked</option>
+                        </select>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-4 text-neutral">
@@ -427,16 +463,17 @@ export default function AdminUsersPage() {
                 </tr>
               ))}
               {!loading && filteredUsers.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-neutral">No hay usuarios con esos filtros.</td></tr>
+                <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-12 text-center text-neutral">No hay usuarios con esos filtros.</td></tr>
               )}
               {loading && (
-                <tr><td colSpan={8} className="px-4 py-12 text-center text-neutral">Cargando usuarios…</td></tr>
+                <tr><td colSpan={isAdmin ? 8 : 7} className="px-4 py-12 text-center text-neutral">Cargando usuarios…</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
-      {showCreateModal && (
+      </>)}
+      {isAdmin && showCreateModal && (
         <AdminCreateUserModal
           onClose={() => setShowCreateModal(false)}
           onSuccess={(user) => {

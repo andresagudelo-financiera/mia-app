@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, type ReactNode } from 'react'
+import { useState, useEffect, useCallback, type ReactNode } from 'react'
 import Link from 'next/link'
-import { Settings, TrendingUp, ArrowRightLeft, Scissors, BarChart2, ChevronRight, Info, Lock, Calendar, MessageCircle, RefreshCw, ArrowLeft } from 'lucide-react'
+import { Settings, TrendingUp, ArrowRightLeft, Scissors, BarChart2, ChevronRight, Info, Lock, Calendar, RefreshCw, ArrowLeft } from 'lucide-react'
 import { useUserStore } from '@/stores/user.store'
 import { useRentabilidadStore } from '@/stores/rentabilidad.store'
 import { pushEvent } from '@/lib/analytics'
@@ -17,11 +17,11 @@ import SnapshotsPanel from './SnapshotsPanel'
 import ResultsPanel from './ResultsPanel'
 
 const TABS = [
-  { id: 'config', label: 'A · Configuración', shortLabel: 'Config', icon: Settings, hint: 'Define pilares, entidades y moneda' },
-  { id: 'inversiones', label: 'B · Inversiones', shortLabel: 'Inversiones', icon: TrendingUp, hint: 'Crea tus buckets de inversión' },
-  { id: 'transacciones', label: 'C · Entradas y Salidas', shortLabel: 'Flujos', icon: ArrowRightLeft, hint: 'Registra aportes con fecha y TRM' },
-  { id: 'cortes', label: 'D · Cortes', shortLabel: 'Cortes', icon: Scissors, hint: 'Valor actual de cada inversión' },
-  { id: 'resultados', label: 'E · Resultados', shortLabel: 'TIR', icon: BarChart2, hint: 'TIR en COP, USD y USD→COP' },
+  { id: 'inversiones', label: 'A · Inversiones', shortLabel: 'Inversiones', icon: TrendingUp, hint: 'Crea tus buckets de inversión' },
+  { id: 'transacciones', label: 'B · Entradas y Salidas', shortLabel: 'Flujos', icon: ArrowRightLeft, hint: 'Registra aportes con fecha y TRM' },
+  { id: 'cortes', label: 'C · Cortes', shortLabel: 'Cortes', icon: Scissors, hint: 'Valor actual de cada inversión' },
+  { id: 'resultados', label: 'D · Resultados', shortLabel: 'TIR', icon: BarChart2, hint: 'TIR en COP, USD y USD→COP' },
+  { id: 'config', label: 'E · Configuración', shortLabel: 'Config', icon: Settings, hint: 'Ajusta moneda, metas, pilares y entidades solo para tu usuario' },
 ] as const
 
 type TabId = typeof TABS[number]['id']
@@ -36,9 +36,16 @@ function isRentabilidadAccess(access: { toolName?: string; simulatorSlug?: strin
 export default function CalculadoraLayout() {
   const { isRegistered, profile, updateProfile, refreshProfile } = useUserStore()
   const investments = useRentabilidadStore(s => s.investments)
+  const transactions = useRentabilidadStore(s => s.transactions)
+  const snapshots = useRentabilidadStore(s => s.snapshots)
   const syncStatus = useRentabilidadStore(s => s.syncStatus)
+  const isRentabilidadHydrated = useRentabilidadStore(s => s.isHydratedFromBackend)
+  const hydrateStatus = useRentabilidadStore(s => s.hydrateStatus)
+  const hydrateError = useRentabilidadStore(s => s.hydrateError)
+  const prepareRentabilidadForUser = useRentabilidadStore(s => s.prepareForUser)
+  const hydrateRentabilidadFromBackend = useRentabilidadStore(s => s.hydrateFromBackend)
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [activeTab, setActiveTab] = useState<TabId>('config')
+  const [activeTab, setActiveTab] = useState<TabId>('inversiones')
   const [tracked, setTracked] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [accessValidationStatus, setAccessValidationStatus] = useState<AccessValidationStatus>('idle')
@@ -81,6 +88,19 @@ export default function CalculadoraLayout() {
   }, [isRegistered, profile, mounted])
 
   const canUseCalculator = mounted && !accessInfo.requiresRegistration && accessValidationStatus === 'validated' && accessInfo.hasAccess
+  const canViewResults = investments.length > 0 && transactions.length > 0 && snapshots.length > 0
+
+  const goToFirstIncompleteStep = useCallback(() => {
+    if (investments.length === 0) {
+      setActiveTab('inversiones')
+      return
+    }
+    if (transactions.length === 0) {
+      setActiveTab('transacciones')
+      return
+    }
+    setActiveTab('cortes')
+  }, [investments.length, transactions.length])
 
   useEffect(() => {
     if (!mounted) return
@@ -120,6 +140,18 @@ export default function CalculadoraLayout() {
     }
   }, [mounted, accessInfo.requiresRegistration, profile?.email, refreshProfile])
 
+  useEffect(() => {
+    if (!mounted || !profile?.id) return
+    prepareRentabilidadForUser(profile.id, profile.baseCurrency)
+    void hydrateRentabilidadFromBackend(profile.id, profile.baseCurrency)
+  }, [mounted, profile?.id, profile?.baseCurrency, prepareRentabilidadForUser, hydrateRentabilidadFromBackend])
+
+  useEffect(() => {
+    if (activeTab === 'resultados' && !canViewResults) {
+      goToFirstIncompleteStep()
+    }
+  }, [activeTab, canViewResults, goToFirstIncompleteStep])
+
   // Show onboarding config after first registration or whenever the profile has not completed it.
   // Do not depend on local investments: they can be stale from another session/user in the browser.
   useEffect(() => {
@@ -137,7 +169,7 @@ export default function CalculadoraLayout() {
   }, [tracked, isRegistered, profile?.id])
 
   useRentabilidadAutoSync({
-    enabled: mounted && isRegistered && Boolean(profile?.id) && canUseCalculator,
+    enabled: mounted && isRegistered && Boolean(profile?.id) && canUseCalculator && isRentabilidadHydrated,
     userId: profile?.id,
     debounceMs: 1200,
   })
@@ -222,8 +254,33 @@ export default function CalculadoraLayout() {
         <OnboardingConfig onComplete={handleOnboardingComplete} />
       )}
 
+      {canUseCalculator && !showOnboarding && hydrateStatus === 'loading' && (
+        <AccessStateCard
+          icon={<RefreshCw className="w-8 h-8 animate-spin text-mf-coral" />}
+          title="Cargando tu calculadora"
+          description="Estamos trayendo tus inversiones, pilares, entidades y configuración personal."
+        />
+      )}
+
+      {canUseCalculator && !showOnboarding && hydrateStatus === 'error' && (
+        <AccessStateCard
+          icon={<Info className="w-8 h-8 text-loss" />}
+          title="No pudimos cargar tu calculadora"
+          description={hydrateError || 'No se pudo cargar tu información personalizada. Revisa el backend local e intenta nuevamente.'}
+          action={
+            <button
+              onClick={() => profile?.id && hydrateRentabilidadFromBackend(profile.id, profile.baseCurrency)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-mf py-4 font-bold text-white shadow-lg shadow-mf-coral/20 transition-opacity hover:opacity-90"
+            >
+              <RefreshCw className="h-5 w-5" />
+              Cargar de nuevo
+            </button>
+          }
+        />
+      )}
+
       {/* Main Calculator UI */}
-      {canUseCalculator && !showOnboarding && (
+      {canUseCalculator && !showOnboarding && isRentabilidadHydrated && (
         <>
           {/* Page Header */}
           <div className="border-b border-mia-border bg-mia-black/95 backdrop-blur-md sticky top-16 z-40">
@@ -287,21 +344,26 @@ export default function CalculadoraLayout() {
 
                 {/* Progress indicator */}
                 <div className="hidden md:flex items-center gap-1.5 text-xs text-neutral">
-                  {TABS.map((tab, i) => (
+                  {TABS.map((tab, i) => {
+                    const isLocked = tab.id === 'resultados' && !canViewResults
+                    return (
                     <div key={tab.id} className="flex items-center gap-1">
                       <button
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => isLocked ? goToFirstIncompleteStep() : setActiveTab(tab.id)}
+                        title={isLocked ? 'Completa inversiones, flujos y cortes para desbloquear resultados.' : tab.hint}
                         className={`w-6 h-6 rounded-full text-xs font-bold transition-all ${
                           activeTab === tab.id
                             ? 'bg-gradient-mf text-white'
-                            : 'bg-mia-surface text-neutral hover:text-mia-cream'
+                            : isLocked
+                              ? 'bg-mia-surface/40 text-neutral/50'
+                              : 'bg-mia-surface text-neutral hover:text-mia-cream'
                         }`}
                       >
-                        {String.fromCharCode(65 + i)}
+                        {isLocked ? <Lock className="mx-auto h-3 w-3" /> : String.fromCharCode(65 + i)}
                       </button>
                       {i < TABS.length - 1 && <ChevronRight className="w-3 h-3 text-mia-border" />}
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
 
@@ -311,19 +373,23 @@ export default function CalculadoraLayout() {
                   {TABS.map(tab => {
                     const Icon = tab.icon
                     const isActive = activeTab === tab.id
+                    const isLocked = tab.id === 'resultados' && !canViewResults
                     return (
                       <button
                         key={tab.id}
                         id={`tab-${tab.id}`}
-                        onClick={() => setActiveTab(tab.id)}
-                        title={tab.hint}
+                        onClick={() => isLocked ? goToFirstIncompleteStep() : setActiveTab(tab.id)}
+                        title={isLocked ? 'Completa inversiones, flujos y cortes para desbloquear resultados.' : tab.hint}
+                        aria-disabled={isLocked}
                         className={`flex items-center gap-1.5 rounded-t-xl border-b-2 px-3 py-2 text-xs font-semibold whitespace-nowrap transition-all duration-200 sm:gap-2 sm:px-4 sm:text-sm ${
                           isActive
                             ? 'bg-mia-black border-mf-coral text-mia-cream'
-                            : 'border-transparent text-neutral hover:text-mia-cream hover:bg-mia-surface/50'
+                            : isLocked
+                              ? 'border-transparent text-neutral/45 hover:bg-mia-surface/30'
+                              : 'border-transparent text-neutral hover:text-mia-cream hover:bg-mia-surface/50'
                         }`}
                       >
-                        <Icon className="h-3.5 w-3.5 shrink-0" />
+                        {isLocked ? <Lock className="h-3.5 w-3.5 shrink-0" /> : <Icon className="h-3.5 w-3.5 shrink-0" />}
                         <span className="hidden sm:inline">{tab.label}</span>
                         <span className="sm:hidden">{tab.shortLabel}</span>
                       </button>
@@ -344,8 +410,6 @@ export default function CalculadoraLayout() {
               {activeTab === 'resultados' && <ResultsPanel />}
             </div>
           </div>
-
-          <MoneyStrategistFloatingCTA />
         </>
       )}
     </div>
@@ -373,36 +437,6 @@ function AccessStateCard({
         <h2 className="mb-3 font-heading text-2xl font-bold text-mia-cream">{title}</h2>
         <p className="mb-8 leading-relaxed text-neutral">{description}</p>
         {action}
-      </div>
-    </div>
-  )
-}
-
-
-function MoneyStrategistFloatingCTA() {
-  return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:right-6 lg:max-w-sm">
-      <div className="glass border border-mf-coral/30 p-3 shadow-2xl shadow-mf-coral/10 rounded-2xl">
-        <div className="flex items-center gap-3">
-          <div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-mf-coral/10 text-mf-coral sm:flex">
-            <MessageCircle className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-mia-cream">Asesórate GRATIS con un Money Strategist</p>
-            <p className="hidden text-xs leading-snug text-neutral sm:block">
-              Revisa tu plan, interpreta tus resultados y resuelve dudas con guía personalizada.
-            </p>
-          </div>
-          <a
-            href="https://wa.me/573205389740?text=Hola%2C%20quiero%20asesorarme%20gratis%20con%20un%20Money%20Strategist%20para%20revisar%20mi%20plan%20de%20inversi%C3%B3n."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-xs font-bold text-white transition-opacity hover:opacity-90"
-          >
-            <MessageCircle className="h-4 w-4" />
-            <span>Hablar ahora</span>
-          </a>
-        </div>
       </div>
     </div>
   )

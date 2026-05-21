@@ -37,6 +37,22 @@ const ADMIN_LOGIN = `
   }
 `
 
+const ADMIN_GOOGLE_LOGIN = `
+  mutation AdminGoogleLogin($email: String!) {
+    adminGoogleLogin(email: $email) {
+      token
+      expiresAt
+      admin {
+        id
+        name
+        email
+        role
+        isActive
+      }
+    }
+  }
+`
+
 export function getMiaApiUrl() {
   return process.env.MIA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql'
 }
@@ -73,4 +89,9 @@ export async function miaAdminGraphQL<TData>(
 export async function loginMiaAdmin(email: string, password: string) {
   const data = await miaAdminGraphQL<{ adminLogin: MiaAdminLogin }>(ADMIN_LOGIN, { email, password })
   return data.adminLogin
+}
+
+export async function loginMiaAdminWithGoogleEmail(email: string) {
+  const data = await miaAdminGraphQL<{ adminGoogleLogin: MiaAdminLogin }>(ADMIN_GOOGLE_LOGIN, { email })
+  return data.adminGoogleLogin
 }

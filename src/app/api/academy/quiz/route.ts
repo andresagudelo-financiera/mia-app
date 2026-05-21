@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { isAcademyEnabled } from '@/lib/feature-flags'
 import { postGraphQL } from '../graphql'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +8,7 @@ const GET_QUIZ = `query AcademyQuiz($lessonId: String!) { academyQuiz(lessonId: 
 const SUBMIT_QUIZ = `mutation SubmitQuiz($userId: String!, $quizId: String!, $answers: JSON!) { submitAcademyQuizAttempt(userId: $userId, quizId: $quizId, answers: $answers) { id quizId userId score passed answers feedback createdAt } }`
 
 export async function GET(request: Request) {
+  if (!isAcademyEnabled()) return NextResponse.json({ error: 'Academia en construcción.' }, { status: 404 })
   const { searchParams } = new URL(request.url)
   const lessonId = searchParams.get('lessonId')
   const userId = searchParams.get('userId') || undefined
@@ -21,6 +23,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!isAcademyEnabled()) return NextResponse.json({ error: 'Academia en construcción.' }, { status: 404 })
   const body = await request.json().catch(() => null)
   if (!body?.userId || !body?.quizId || !body?.answers) return NextResponse.json({ error: 'Datos de quiz incompletos.' }, { status: 400 })
   try {

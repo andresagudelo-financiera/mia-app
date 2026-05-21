@@ -1,6 +1,60 @@
 import { NextResponse } from 'next/server'
 
 const MIA_API_URL = process.env.MIA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql'
+const GHL_NEW_LEAD_WEBHOOK_URL = process.env.GHL_NEW_LEAD_WEBHOOK_URL || 'https://services.leadconnectorhq.com/hooks/vEh7JAwgMFnBubxjOxId/webhook-trigger/c1bb7b96-3a2c-43fb-bca2-d46dd897edd7'
+
+function normalizeSimulatorForGhl(toolName: string) {
+  return String(toolName || 'rentabilidad').trim().toLowerCase().replace(/-/g, '_')
+}
+
+async function sendNewLeadToGhl(input: { id?: string; email: string; phone?: string | null; toolName: string; utmSource?: string | null }) {
+  if (!GHL_NEW_LEAD_WEBHOOK_URL) return { attempted: false, ok: false, reason: 'missing_webhook_url' }
+
+  const payload = {
+    miaUserId: input.id,
+    email: input.email,
+    phone: input.phone || '',
+    simulator: normalizeSimulatorForGhl(input.toolName),
+    utm_source: input.utmSource || 'direct',
+    source: 'mia_registration',
+  }
+
+  try {
+    const response = await fetch(GHL_NEW_LEAD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    })
+
+    const responseText = await response.text().catch(() => '')
+    const result = {
+      attempted: true,
+      ok: response.ok,
+      status: response.status,
+      simulator: payload.simulator,
+      response: responseText.slice(0, 500),
+    }
+
+    if (!response.ok) {
+      console.error('GHL new lead webhook returned non-OK:', result)
+    } else {
+      console.info('GHL new lead webhook sent:', { attempted: true, ok: true, status: response.status, email: input.email, simulator: payload.simulator })
+    }
+
+    return result
+  } catch (error) {
+    const result = {
+      attempted: true,
+      ok: false,
+      status: null,
+      simulator: payload.simulator,
+      error: error instanceof Error ? error.message : 'unknown_error',
+    }
+    console.error('GHL new lead webhook failed:', result)
+    return result
+  }
+}
 
 const REGISTER_USER = `
   mutation RegisterUser($name: String!, $email: String!, $phone: String, $baseCurrency: String, $password: String!, $toolName: String) {
@@ -55,6 +109,7 @@ export async function POST(request: Request) {
     const baseCurrency = String(body?.baseCurrency || 'COP').trim() || 'COP'
     const password = String(body?.password || '')
     const toolName = String(body?.toolName || 'rentabilidad').trim().toLowerCase()
+    const utmSource = body?.utm_source ? String(body.utm_source).trim() : body?.utmSource ? String(body.utmSource).trim() : null
 
     if (!name || !email || !email.includes('@') || !password) {
       return NextResponse.json({ user: null, error: 'Datos de registro incompletos.' }, { status: 400 })
@@ -88,7 +143,11 @@ export async function POST(request: Request) {
       user = refreshPayload?.data?.user || user
     }
 
-    return NextResponse.json({ user })
+    const ghlLeadSync = user?.id && user?.email
+      ? await sendNewLeadToGhl({ id: user.id, email: user.email, phone: user.phone || phone, toolName, utmSource })
+      : { attempted: false, ok: false, reason: 'missing_user' }
+
+    return NextResponse.json({ user, ghlLeadSync })
   } catch (error) {
     console.error('User registration failed:', error)
     return NextResponse.json({ user: null, error: 'No se pudo crear la cuenta.' }, { status: 500 })

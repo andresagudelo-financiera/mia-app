@@ -89,6 +89,7 @@ export type RegisterInput = {
   phone: string
   baseCurrency: string
   password: string
+  utm_source?: string | null
 }
 
 export type RentabilidadStoreData = {
@@ -124,7 +125,7 @@ export type ComputedFlows = {
 // Admin / Access Control Types
 // ============================================================
 
-export type UserRole = 'user' | 'admin'
+export type UserRole = 'user' | 'admin' | 'coach' | 'money_strategist'
 
 export type UserStatus = 'active' | 'demo' | 'expired' | 'blocked' | 'paid'
 
