@@ -11,6 +11,10 @@ const DEFAULT_CONFIG: Config = {
   pillars: DEFAULT_PILLARS,
   entities: DEFAULT_ENTITIES,
   currencies: SUPPORTED_CURRENCIES,
+  dashboardSettings: {
+    pillarTargets: {},
+    goldenNumberTarget: undefined,
+  },
 }
 
 interface RentabilidadStore extends RentabilidadStoreData {
@@ -22,6 +26,8 @@ interface RentabilidadStore extends RentabilidadStoreData {
   addEntity: (name: string) => void
   updateEntity: (oldName: string, newName: string) => void
   removeEntity: (name: string) => void
+  setPillarTarget: (pillar: string, target: number | null) => void
+  setGoldenNumberTarget: (target: number | null) => void
 
   // Investment actions
   addInvestment: (inv: Omit<Investment, 'id' | 'createdAt'>) => boolean // returns false if name duplicate
@@ -79,17 +85,44 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
         })),
 
       updatePillar: (oldName, newName) =>
-        set((s) => ({
-          config: { ...s.config, pillars: (s.config.pillars || []).map(p => p === oldName ? newName : p) },
-          investments: s.investments.map(inv => inv.pilar === oldName ? { ...inv, pilar: newName } : inv),
-          lastUpdated: nowIso(),
-        })),
+        set((s) => {
+          const targets = { ...(s.config.dashboardSettings?.pillarTargets || {}) }
+          if (Object.prototype.hasOwnProperty.call(targets, oldName)) {
+            targets[newName] = targets[oldName]
+            delete targets[oldName]
+          }
+
+          return {
+            config: {
+              ...s.config,
+              pillars: (s.config.pillars || []).map(p => p === oldName ? newName : p),
+              dashboardSettings: {
+                ...(s.config.dashboardSettings || {}),
+                pillarTargets: targets,
+              },
+            },
+            investments: s.investments.map(inv => inv.pilar === oldName ? { ...inv, pilar: newName } : inv),
+            lastUpdated: nowIso(),
+          }
+        }),
 
       removePillar: (name) =>
-        set((s) => ({
-          config: { ...s.config, pillars: (s.config.pillars || []).filter(p => p !== name) },
-          lastUpdated: nowIso(),
-        })),
+        set((s) => {
+          const targets = { ...(s.config.dashboardSettings?.pillarTargets || {}) }
+          delete targets[name]
+
+          return {
+            config: {
+              ...s.config,
+              pillars: (s.config.pillars || []).filter(p => p !== name),
+              dashboardSettings: {
+                ...(s.config.dashboardSettings || {}),
+                pillarTargets: targets,
+              },
+            },
+            lastUpdated: nowIso(),
+          }
+        }),
 
       addEntity: (name) =>
         set((s) => ({
@@ -110,6 +143,47 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
           config: { ...s.config, entities: (s.config.entities || []).filter(e => e !== name) },
           lastUpdated: nowIso(),
         })),
+
+      setPillarTarget: (pillar, target) =>
+        set((s) => {
+          const targets = { ...(s.config.dashboardSettings?.pillarTargets || {}) }
+          const numericTarget = Number(target ?? 0)
+          if (!Number.isFinite(numericTarget) || numericTarget <= 0) {
+            delete targets[pillar]
+          } else {
+            targets[pillar] = numericTarget
+          }
+
+          return {
+            config: {
+              ...s.config,
+              dashboardSettings: {
+                ...(s.config.dashboardSettings || {}),
+                pillarTargets: targets,
+              },
+            },
+            lastUpdated: nowIso(),
+          }
+        }),
+
+      setGoldenNumberTarget: (target) =>
+        set((s) => {
+          const numericTarget = Number(target ?? 0)
+          const nextSettings = { ...(s.config.dashboardSettings || {}) }
+          if (!Number.isFinite(numericTarget) || numericTarget <= 0) {
+            delete nextSettings.goldenNumberTarget
+          } else {
+            nextSettings.goldenNumberTarget = numericTarget
+          }
+
+          return {
+            config: {
+              ...s.config,
+              dashboardSettings: nextSettings,
+            },
+            lastUpdated: nowIso(),
+          }
+        }),
 
       // === INVESTMENTS ===
       addInvestment: (inv) => {
@@ -236,6 +310,14 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
           pillars: persistedState?.config?.pillars || currentState.config.pillars,
           entities: persistedState?.config?.entities || currentState.config.entities,
           currencies: persistedState?.config?.currencies || currentState.config.currencies,
+          dashboardSettings: {
+            ...(currentState.config.dashboardSettings || {}),
+            ...(persistedState?.config?.dashboardSettings || {}),
+            pillarTargets: {
+              ...(currentState.config.dashboardSettings?.pillarTargets || {}),
+              ...(persistedState?.config?.dashboardSettings?.pillarTargets || {}),
+            },
+          },
         },
         investments: persistedState?.investments || currentState.investments,
         transactions: persistedState?.transactions || currentState.transactions,

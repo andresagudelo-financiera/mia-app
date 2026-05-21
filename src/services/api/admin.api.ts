@@ -684,7 +684,14 @@ export const adminApi = {
   },
 
   async listPublicSimulators() {
-    const response = await fetch('/api/simulators', { cache: 'no-store' })
+    const url = `/api/simulators?ts=${Date.now()}`
+    const response = await fetch(url, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    })
     const payload = await response.json().catch(() => null)
 
     if (!response.ok) {

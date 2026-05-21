@@ -2,11 +2,19 @@
 // MIA Platform — Core TypeScript Types
 // ============================================================
 
+export type DashboardSettings = {
+  /** Objetivo configurable por pilar en la moneda base del usuario. */
+  pillarTargets?: Record<string, number>
+  /** Meta patrimonial global configurable: equivalente al Número Dorado del Excel. */
+  goldenNumberTarget?: number
+}
+
 export type Config = {
   baseCurrency: string
   pillars: string[]
   entities: string[]
   currencies: string[]
+  dashboardSettings?: DashboardSettings
 }
 
 export type Investment = {

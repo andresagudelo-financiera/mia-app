@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, TrendingUp, Lock, Calculator, ShieldCheck, Gem, HeartPulse, BadgeDollarSign, Route, SearchCheck } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
-import { mergeSimulatorCatalog } from '@/lib/simulator-catalog'
+import { DEFAULT_PUBLIC_SIMULATORS, mergeSimulatorCatalog } from '@/lib/simulator-catalog'
 import type { Simulator } from '@/types/rentabilidad'
 
 const UI_METADATA: Record<string, any> = {
@@ -88,23 +88,37 @@ function matchesFilter(simulator: Simulator, activeFilter: string, search: strin
 }
 
 export default function CalculatorCards() {
-  const [simulators, setSimulators] = useState<Simulator[]>([])
+  const [simulators, setSimulators] = useState<Simulator[]>(() => mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS))
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    const load = async () => {
+    let active = true
+
+    const load = async ({ silent = false }: { silent?: boolean } = {}) => {
       try {
+        if (!silent) setLoading(true)
         const data = await adminApi.listPublicSimulators()
-        setSimulators(mergeSimulatorCatalog(data))
+        if (active) setSimulators(mergeSimulatorCatalog(data))
       } catch {
-        setSimulators(mergeSimulatorCatalog([]))
+        if (active) setSimulators(mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS))
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
+
     load()
+
+    const refreshOnFocus = () => load({ silent: true })
+    window.addEventListener('focus', refreshOnFocus)
+    window.addEventListener('pageshow', refreshOnFocus)
+
+    return () => {
+      active = false
+      window.removeEventListener('focus', refreshOnFocus)
+      window.removeEventListener('pageshow', refreshOnFocus)
+    }
   }, [])
 
   const filteredSimulators = useMemo(

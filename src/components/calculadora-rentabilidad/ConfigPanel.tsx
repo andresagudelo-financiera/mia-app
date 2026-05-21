@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRentabilidadStore } from '@/stores/rentabilidad.store'
 import { SUPPORTED_CURRENCIES } from '@/lib/constants'
-import { Plus, Trash2, Edit2, Check, X, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Edit2, Check, X, AlertTriangle, Target, Trophy } from 'lucide-react'
 
 function CatalogEditor({
   title,
@@ -107,6 +107,7 @@ export default function ConfigPanel() {
     setBaseCurrency,
     addPillar, updatePillar, removePillar,
     addEntity, updateEntity, removeEntity,
+    setPillarTarget, setGoldenNumberTarget,
   } = useRentabilidadStore()
 
   const [showCurrencyWarning, setShowCurrencyWarning] = useState(false)
@@ -162,6 +163,60 @@ export default function ConfigPanel() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+      </div>
+
+
+      {/* Dashboard goals */}
+      <div className="glass rounded-2xl p-6 border border-mia-border">
+        <div className="flex items-start gap-3 mb-5">
+          <div className="p-2.5 rounded-2xl bg-mf-coral/10 text-mf-coral border border-mf-coral/20">
+            <Target className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-heading font-semibold text-mia-cream">Objetivos del dashboard</h3>
+            <p className="text-sm text-neutral mt-1">
+              Configura tus metas por pilar y tu Número Dorado. Estos valores se guardan con tu usuario para que el dashboard mida avance, faltante y prioridades.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-5">
+          <label className="lg:col-span-1 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4">
+            <div className="flex items-center gap-2 text-amber-200 font-heading font-semibold text-sm mb-2">
+              <Trophy className="w-4 h-4" />
+              Número Dorado total
+            </div>
+            <input
+              type="number"
+              min={0}
+              value={config.dashboardSettings?.goldenNumberTarget ?? ''}
+              onChange={e => setGoldenNumberTarget(e.target.value ? Number(e.target.value) : null)}
+              placeholder={`Meta en ${config.baseCurrency}`}
+              className="w-full px-3 py-3 bg-mia-surface border border-mia-border rounded-xl text-mia-cream placeholder:text-neutral focus:outline-none focus:border-mf-coral"
+            />
+            <p className="text-[11px] text-neutral mt-2">Meta patrimonial global, equivalente al Número Dorado del dashboard en Excel.</p>
+          </label>
+
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(config.pillars || []).map((pillar) => (
+              <label key={pillar} className="rounded-2xl border border-mia-border bg-mia-surface/40 p-4">
+                <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-neutral mb-2">{pillar}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={config.dashboardSettings?.pillarTargets?.[pillar] ?? ''}
+                  onChange={e => setPillarTarget(pillar, e.target.value ? Number(e.target.value) : null)}
+                  placeholder={`Objetivo en ${config.baseCurrency}`}
+                  className="w-full px-3 py-2.5 bg-mia-black border border-mia-border rounded-xl text-mia-cream placeholder:text-neutral focus:outline-none focus:border-mf-coral"
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-mia-blue/20 bg-mia-blue/10 px-4 py-3 text-xs text-neutral">
+          Tip: si dejas un objetivo vacío, el dashboard lo marcará como pendiente de configurar y no castigará el avance del pilar.
+        </div>
       </div>
 
       {/* Catalogs */}

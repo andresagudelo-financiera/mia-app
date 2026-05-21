@@ -8,6 +8,7 @@ import { formatCurrency, formatPercent, formatNumber } from '@/lib/formatters'
 import TRMBadge from './TRMBadge'
 import SummaryCards from './SummaryCards'
 import PortfolioChart from './PortfolioChart'
+import DashboardPanel from './DashboardPanel'
 import ExportPDFButton from './ExportPDFButton'
 import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
 import { Info } from 'lucide-react'
@@ -68,6 +69,17 @@ export default function ResultsPanel() {
 
       {/* Summary */}
       <SummaryCards results={results} trm={trm} />
+
+      <DashboardPanel
+        results={results}
+        investments={investments}
+        transactions={transactions}
+        snapshots={snapshots}
+        baseCurrency={config.baseCurrency}
+        trm={trm}
+        pillarTargets={config.dashboardSettings?.pillarTargets}
+        goldenNumberTarget={config.dashboardSettings?.goldenNumberTarget}
+      />
 
       <SimulatorActionBar
         title="Calculadora de Rentabilidad"
