@@ -88,7 +88,7 @@ function matchesFilter(simulator: Simulator, activeFilter: string, search: strin
 }
 
 export default function CalculatorCards() {
-  const [simulators, setSimulators] = useState<Simulator[]>(() => mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS))
+  const [simulators, setSimulators] = useState<Simulator[]>(() => mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS, { includeDefaults: true }))
   const [loading, setLoading] = useState(true)
   const [activeFilter, setActiveFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -100,9 +100,9 @@ export default function CalculatorCards() {
       try {
         if (!silent) setLoading(true)
         const data = await adminApi.listPublicSimulators()
-        if (active) setSimulators(mergeSimulatorCatalog(data))
+        if (active) setSimulators(mergeSimulatorCatalog(data, { includeDefaults: false }))
       } catch {
-        if (active) setSimulators(mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS))
+        if (active) setSimulators(mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS, { includeDefaults: true }))
       } finally {
         if (active) setLoading(false)
       }

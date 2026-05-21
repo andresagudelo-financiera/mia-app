@@ -60,31 +60,19 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
   },
 ]
 
-export const PLACEHOLDER_SIMULATORS: Simulator[] = [
-  {
-    id: 'interes-compuesto',
-    slug: 'interes-compuesto',
-    name: 'Calculadora de Interés Compuesto',
-    description: 'Simula el crecimiento de tus ahorros con aportaciones periódicas y tasa de interés.',
-    status: 'coming_soon',
-    accessType: 'free',
-  },
-]
-
-export function mergeSimulatorCatalog(simulators: Simulator[]) {
+export function mergeSimulatorCatalog(
+  simulators: Simulator[],
+  options: { includeDefaults?: boolean } = {},
+) {
   const merged = [...simulators]
 
-  DEFAULT_PUBLIC_SIMULATORS.forEach(simulator => {
-    if (!merged.some(item => item.slug === simulator.slug)) {
-      merged.push(simulator)
-    }
-  })
-
-  PLACEHOLDER_SIMULATORS.forEach(simulator => {
-    if (!merged.some(item => item.slug === simulator.slug)) {
-      merged.push(simulator)
-    }
-  })
+  if (options.includeDefaults) {
+    DEFAULT_PUBLIC_SIMULATORS.forEach(simulator => {
+      if (!merged.some(item => item.slug === simulator.slug)) {
+        merged.push(simulator)
+      }
+    })
+  }
 
   return merged
 }
