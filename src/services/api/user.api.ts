@@ -149,7 +149,21 @@ export const userApi = {
     };
   },
 
-  async register(data: { name: string; email: string; phone?: string; baseCurrency?: string; password: string; utm_source?: string | null }, toolName = 'rentabilidad') {
+  async register(
+    data: {
+      name: string;
+      email: string;
+      phone?: string;
+      baseCurrency?: string;
+      password: string;
+      utm_source?: string | null;
+      utm_medium?: string | null;
+      utm_campaign?: string | null;
+      utm_content?: string | null;
+      utm_term?: string | null;
+    },
+    toolName = 'rentabilidad',
+  ) {
     const response = await fetch('/api/users/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

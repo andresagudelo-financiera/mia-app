@@ -18,10 +18,39 @@ function splitFullName(name: string) {
   }
 }
 
-async function sendNewLeadToGhl(input: { id?: string; name?: string | null; email: string; phone?: string | null; toolName: string; utmSource?: string | null }) {
+function toPlainText(value: unknown, fallback = '') {
+  if (value === null || value === undefined) return fallback
+  if (typeof value === 'string') return value.trim() || fallback
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const objectValue = record.value ?? record.name ?? record.label ?? record.text ?? record.id
+    if (objectValue !== undefined && objectValue !== value) {
+      return toPlainText(objectValue, fallback)
+    }
+  }
+  return fallback
+}
+
+type GhlUtmInput = {
+  utmSource?: unknown
+  utmMedium?: unknown
+  utmCampaign?: unknown
+  utmContent?: unknown
+  utmTerm?: unknown
+}
+
+async function sendNewLeadToGhl(input: {
+  id?: string
+  name?: string | null
+  email: string
+  phone?: string | null
+  toolName: string
+} & GhlUtmInput) {
   if (!GHL_NEW_LEAD_WEBHOOK_URL) return { attempted: false, ok: false, reason: 'missing_webhook_url' }
 
   const nameParts = splitFullName(input.name || '')
+  const simulator = normalizeSimulatorForGhl(input.toolName)
   const payload = {
     miaUserId: input.id,
     name: nameParts.fullName,
@@ -30,8 +59,13 @@ async function sendNewLeadToGhl(input: { id?: string; name?: string | null; emai
     lastName: nameParts.lastName,
     email: input.email,
     phone: input.phone || '',
-    simulator: normalizeSimulatorForGhl(input.toolName),
-    utm_source: input.utmSource || 'direct',
+    simulator,
+    toolName: simulator,
+    utm_source: toPlainText(input.utmSource, 'direct'),
+    utm_medium: toPlainText(input.utmMedium),
+    utm_campaign: toPlainText(input.utmCampaign),
+    utm_content: toPlainText(input.utmContent),
+    utm_term: toPlainText(input.utmTerm),
     source: 'mia_registration',
   }
 
@@ -49,6 +83,8 @@ async function sendNewLeadToGhl(input: { id?: string; name?: string | null; emai
       ok: response.ok,
       status: response.status,
       simulator: payload.simulator,
+      utm_source: payload.utm_source,
+      utm_campaign: payload.utm_campaign,
       response: responseText.slice(0, 500),
     }
 
@@ -119,13 +155,17 @@ const GET_USER = `
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => null)
-    const name = String(body?.name || '').trim()
-    const email = String(body?.email || '').trim().toLowerCase()
-    const phone = body?.phone ? String(body.phone).trim() : null
-    const baseCurrency = String(body?.baseCurrency || 'COP').trim() || 'COP'
-    const password = String(body?.password || '')
-    const toolName = String(body?.toolName || 'rentabilidad').trim().toLowerCase()
-    const utmSource = body?.utm_source ? String(body.utm_source).trim() : body?.utmSource ? String(body.utmSource).trim() : null
+    const name = toPlainText(body?.name).trim()
+    const email = toPlainText(body?.email).trim().toLowerCase()
+    const phone = body?.phone ? toPlainText(body.phone).trim() : null
+    const baseCurrency = toPlainText(body?.baseCurrency, 'COP').trim() || 'COP'
+    const password = toPlainText(body?.password)
+    const toolName = toPlainText(body?.toolName, 'rentabilidad').trim().toLowerCase()
+    const utmSource = body?.utm_source ?? body?.utmSource ?? null
+    const utmMedium = body?.utm_medium ?? body?.utmMedium ?? null
+    const utmCampaign = body?.utm_campaign ?? body?.utmCampaign ?? null
+    const utmContent = body?.utm_content ?? body?.utmContent ?? null
+    const utmTerm = body?.utm_term ?? body?.utmTerm ?? null
 
     if (!name || !email || !email.includes('@') || !password) {
       return NextResponse.json({ user: null, error: 'Datos de registro incompletos.' }, { status: 400 })
@@ -160,7 +200,18 @@ export async function POST(request: Request) {
     }
 
     const ghlLeadSync = user?.id && user?.email
-      ? await sendNewLeadToGhl({ id: user.id, name: user.name || name, email: user.email, phone: user.phone || phone, toolName, utmSource })
+      ? await sendNewLeadToGhl({
+          id: user.id,
+          name: user.name || name,
+          email: user.email,
+          phone: user.phone || phone,
+          toolName,
+          utmSource,
+          utmMedium,
+          utmCampaign,
+          utmContent,
+          utmTerm,
+        })
       : { attempted: false, ok: false, reason: 'missing_user' }
 
     return NextResponse.json({ user, ghlLeadSync })
