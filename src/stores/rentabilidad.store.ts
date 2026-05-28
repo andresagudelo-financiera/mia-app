@@ -405,7 +405,15 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
         config: {
           ...currentState.config,
           ...(persistedState?.config || {}),
-          pillars: persistedState?.config?.pillars || currentState.config.pillars,
+          pillars: (() => {
+            const persisted: string[] = persistedState?.config?.pillars || []
+            // Migrate: remove legacy auto-generated pillar names that were removed from defaults
+            const LEGACY_PILLARS = ['Crea Patrimonio', ...Array.from({ length: 10 }, (_, i) => `Objetivo ${i + 1}`)]
+            const cleaned = persisted.filter(p => !LEGACY_PILLARS.includes(p))
+            // Ensure the 4 core Vortex pillars always exist (add if missing)
+            const core = DEFAULT_PILLARS.filter(p => !cleaned.includes(p))
+            return cleaned.length > 0 ? [...core, ...cleaned] : currentState.config.pillars
+          })(),
           entities: persistedState?.config?.entities || currentState.config.entities,
           currencies: persistedState?.config?.currencies || currentState.config.currencies,
           dashboardSettings: {
