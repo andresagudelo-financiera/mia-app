@@ -9,6 +9,8 @@ export async function POST(request: Request) {
     const nombre = String(body?.nombre || '').trim()
     const fecha = String(body?.fecha || '').trim()
     const userId = body?.userId ? String(body.userId) : undefined
+    const monto = body?.monto ? Number(body.monto) : undefined
+    const moneda = body?.moneda ? String(body.moneda) : undefined
 
     if (!fecha) {
       return NextResponse.json({ error: 'Fecha requerida.' }, { status: 400 })
@@ -26,6 +28,8 @@ export async function POST(request: Request) {
           toolName: 'desafio_mundial',
           source: 'desafio_mundial_checkin',
           checkInFecha: fecha,
+          monto,
+          moneda,
           utm_source: 'desafio_mundial',
         }),
         cache: 'no-store',

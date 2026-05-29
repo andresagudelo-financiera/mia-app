@@ -3,9 +3,13 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 
+export const MONTO_MINIMO_DIA = 20_000
+
 export interface Aporte {
   id: string
   fecha: string
+  monto: number
+  moneda: string
   timestamp: number
 }
 
@@ -27,17 +31,28 @@ interface DesafioMundialState {
 
 interface DesafioMundialActions {
   registerProfile: (data: DesafioMundialProfile) => void
-  marcarHoy: () => void
-  desmarcarAporte: (id: string) => void
+  agregarAporte: (monto: number, moneda: string) => void
+  eliminarAporte: (id: string) => void
   clearAll: () => void
-  getAporteHoy: () => Aporte | undefined
+  getAportesHoy: () => Aporte[]
+  getTotalHoy: () => number
+  getDiaCompletado: (fecha: string) => boolean
   getRacha: () => number
-  getTotalDias: () => number
+  getTotalDiasCompletados: () => number
+  getTotalAcumulado: () => number
 }
 
 type DesafioMundialStore = DesafioMundialState & DesafioMundialActions
 
-const today = () => new Date().toISOString().slice(0, 10)
+const todayStr = () => new Date().toISOString().slice(0, 10)
+
+function aportesDelDia(aportes: Aporte[], fecha: string) {
+  return aportes.filter((a) => a.fecha === fecha)
+}
+
+function totalDelDia(aportes: Aporte[], fecha: string) {
+  return aportesDelDia(aportes, fecha).reduce((s, a) => s + a.monto, 0)
+}
 
 export const useDesafioMundialStore = create<DesafioMundialStore>()(
   persist(
@@ -48,36 +63,46 @@ export const useDesafioMundialStore = create<DesafioMundialStore>()(
 
       registerProfile: (data) => set({ profile: data, isRegistered: true }),
 
-      marcarHoy: () => {
-        const t = today()
-        if (get().aportes.find((a) => a.fecha === t)) return
+      agregarAporte: (monto, moneda) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        set((s) => ({ aportes: [{ id, fecha: t, timestamp: Date.now() }, ...s.aportes] }))
+        const aporte: Aporte = { id, fecha: todayStr(), monto, moneda, timestamp: Date.now() }
+        set((s) => ({ aportes: [aporte, ...s.aportes] }))
       },
 
-      desmarcarAporte: (id) =>
+      eliminarAporte: (id) =>
         set((s) => ({ aportes: s.aportes.filter((a) => a.id !== id) })),
 
       clearAll: () => set({ profile: null, aportes: [], isRegistered: false }),
 
-      getAporteHoy: () => {
-        const t = today()
-        return get().aportes.find((a) => a.fecha === t)
+      getAportesHoy: () => aportesDelDia(get().aportes, todayStr()),
+
+      getTotalHoy: () => totalDelDia(get().aportes, todayStr()),
+
+      getDiaCompletado: (fecha) => totalDelDia(get().aportes, fecha) >= MONTO_MINIMO_DIA,
+
+      getTotalDiasCompletados: () => {
+        const { aportes } = get()
+        const fechas = [...new Set(aportes.map((a) => a.fecha))]
+        return fechas.filter((f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA).length
       },
 
-      getTotalDias: () => get().aportes.length,
+      getTotalAcumulado: () =>
+        get().aportes.reduce((s, a) => s + a.monto, 0),
 
       getRacha: () => {
-        const aportes = get().aportes
+        const { aportes } = get()
         if (aportes.length === 0) return 0
         const fechas = [...new Set(aportes.map((a) => a.fecha))].sort().reverse()
-        const t = today()
+        const t = todayStr()
         let racha = 0
         const cursor = new Date(t)
         for (const fecha of fechas) {
-          if (fecha === cursor.toISOString().slice(0, 10)) {
+          const cursorFecha = cursor.toISOString().slice(0, 10)
+          if (fecha === cursorFecha && totalDelDia(aportes, fecha) >= MONTO_MINIMO_DIA) {
             racha++
             cursor.setDate(cursor.getDate() - 1)
+          } else if (fecha === cursorFecha) {
+            break
           } else {
             break
           }

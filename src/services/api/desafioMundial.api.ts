@@ -16,7 +16,14 @@ export const desafioMundialApi = {
     }
   },
 
-  async registrarAporte(params: { email: string; nombre: string; fecha: string; userId?: string }): Promise<void> {
+  async registrarAporte(params: {
+    email: string
+    nombre: string
+    fecha: string
+    userId?: string
+    monto?: number
+    moneda?: string
+  }): Promise<void> {
     try {
       await fetch('/api/desafio-mundial/aporte', {
         method: 'POST',
@@ -25,7 +32,7 @@ export const desafioMundialApi = {
         cache: 'no-store',
       })
     } catch {
-      // fire and forget — localStorage is source of truth
+      // fire and forget
     }
   },
 }
