@@ -166,9 +166,9 @@ function ChallengeCards() {
               <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-mf-orange/30 bg-mf-orange/10 px-3 py-1 text-xs font-bold text-mf-orange">
                 <Zap className="h-4 w-4" /> Reto de ahorro · Local, sin registro al backend
               </div>
-              <h2 className="font-heading text-2xl font-bold text-mia-cream md:text-3xl">Desafío Mundial 2026</h2>
+              <h2 className="font-heading text-2xl font-bold text-mia-cream md:text-3xl">Desafío Mundial 2030</h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral md:text-base">
-                Registra un aporte diario desde hoy hasta el FIFA World Cup 2026. Sigue tu racha, mide tu progreso y llega al torneo con más plata en el bolsillo.
+                Marca cada día que ahorras desde hoy hasta el FIFA World Cup 2030. Sigue tu racha y construye el hábito antes del torneo.
               </p>
             </div>
           </div>

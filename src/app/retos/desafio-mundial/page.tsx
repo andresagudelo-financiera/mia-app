@@ -3,8 +3,8 @@ import Navbar from '@/components/landing/Navbar'
 import DesafioMundial from '@/components/simuladores/DesafioMundial'
 
 export const metadata: Metadata = {
-  title: 'Desafío Mundial 2026 | Moneyflow',
-  description: 'Tracker de ahorro diario hasta el FIFA World Cup 2026. Registra un aporte cada día y llega al Mundial con más plata.',
+  title: 'Desafío Mundial 2030 | Moneyflow',
+  description: 'Marca cada día que ahorras hasta el FIFA World Cup 2030. Construye el hábito y llega al torneo con la racha ganada.',
 }
 
 export default function DesafioMundialPage() {

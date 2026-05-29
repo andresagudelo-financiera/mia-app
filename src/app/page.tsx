@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Navbar from '@/components/landing/Navbar'
 import Hero from '@/components/landing/Hero'
 import WhatIsMIA from '@/components/landing/WhatIsMIA'
+import DesafioMundialBanner from '@/components/landing/DesafioMundialBanner'
 import Footer from '@/components/landing/Footer'
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ export default function HomePage() {
     <main className="min-h-screen bg-mia-black">
       <Navbar variant="home" />
       <Hero />
+      <DesafioMundialBanner />
       <WhatIsMIA />
       <Footer />
     </main>

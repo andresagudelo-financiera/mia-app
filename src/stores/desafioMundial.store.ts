@@ -6,8 +6,6 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 export interface Aporte {
   id: string
   fecha: string
-  monto: number
-  moneda: string
   timestamp: number
 }
 
@@ -17,8 +15,8 @@ export interface DesafioMundialProfile {
   telefono: string
   pais: string
   bandera: string
-  monedaDefault: string
   registradoEn: string
+  userId?: string
 }
 
 interface DesafioMundialState {
@@ -29,12 +27,12 @@ interface DesafioMundialState {
 
 interface DesafioMundialActions {
   registerProfile: (data: DesafioMundialProfile) => void
-  addAporte: (monto: number, moneda: string) => void
-  deleteAporte: (id: string) => void
+  marcarHoy: () => void
+  desmarcarAporte: (id: string) => void
   clearAll: () => void
-  getTotalAhorrado: () => number
   getAporteHoy: () => Aporte | undefined
   getRacha: () => number
+  getTotalDias: () => number
 }
 
 type DesafioMundialStore = DesafioMundialState & DesafioMundialActions
@@ -48,54 +46,42 @@ export const useDesafioMundialStore = create<DesafioMundialStore>()(
       aportes: [],
       isRegistered: false,
 
-      registerProfile: (data) =>
-        set({ profile: data, isRegistered: true }),
+      registerProfile: (data) => set({ profile: data, isRegistered: true }),
 
-      addAporte: (monto, moneda) => {
+      marcarHoy: () => {
+        const t = today()
+        if (get().aportes.find((a) => a.fecha === t)) return
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        const aporte: Aporte = {
-          id,
-          fecha: today(),
-          monto,
-          moneda,
-          timestamp: Date.now(),
-        }
-        set((s) => ({ aportes: [aporte, ...s.aportes] }))
+        set((s) => ({ aportes: [{ id, fecha: t, timestamp: Date.now() }, ...s.aportes] }))
       },
 
-      deleteAporte: (id) =>
+      desmarcarAporte: (id) =>
         set((s) => ({ aportes: s.aportes.filter((a) => a.id !== id) })),
 
       clearAll: () => set({ profile: null, aportes: [], isRegistered: false }),
-
-      getTotalAhorrado: () =>
-        get().aportes.reduce((acc, a) => acc + a.monto, 0),
 
       getAporteHoy: () => {
         const t = today()
         return get().aportes.find((a) => a.fecha === t)
       },
 
+      getTotalDias: () => get().aportes.length,
+
       getRacha: () => {
         const aportes = get().aportes
         if (aportes.length === 0) return 0
-
         const fechas = [...new Set(aportes.map((a) => a.fecha))].sort().reverse()
         const t = today()
-
         let racha = 0
-        let cursor = new Date(t)
-
+        const cursor = new Date(t)
         for (const fecha of fechas) {
-          const cursorStr = cursor.toISOString().slice(0, 10)
-          if (fecha === cursorStr) {
+          if (fecha === cursor.toISOString().slice(0, 10)) {
             racha++
             cursor.setDate(cursor.getDate() - 1)
           } else {
             break
           }
         }
-
         return racha
       },
     }),
