@@ -7,6 +7,9 @@ const nextConfig = {
   images: {
     remotePatterns: [],
   },
+  experimental: {
+    serverComponentsExternalPackages: ['pdf-parse']
+  },
   webpack: (config, { dev }) => {
     // Evita módulos/chunks stale en desarrollo cuando se alterna entre proyectos Next
     // o cuando el dev server queda vivo mientras se instala/cambia NextAuth.

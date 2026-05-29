@@ -21,8 +21,6 @@ const FIELDS = [
   { key: 'expectedReturnRate', label: 'Rentabilidad esperada anual', suffix: '%', placeholder: '10' },
   { key: 'netReturn', label: 'Rentabilidad neta objetivo', suffix: '%', placeholder: '4' },
   { key: 'totalSavings', label: 'Ahorro actual para retiro', suffix: 'money', placeholder: '50000000' },
-  { key: 'monthlyLivingCost', label: 'Gasto mensual actual', suffix: 'money', placeholder: '6000000' },
-  { key: 'annualExpenses', label: 'Gastos anuales extra', suffix: 'money', placeholder: '12000000' },
   { key: 'riskScore', label: 'Score/rentabilidad de referencia', suffix: '%', placeholder: '8' },
 ]
 
@@ -37,9 +35,7 @@ const DEFAULTS: FormState = {
   netReturn: '4',
   otherIncomeSources: '0',
   totalSavings: '0',
-  monthlyLivingCost: '6000000',
   desiredPostRetirementIncome: '72000000',
-  annualExpenses: '0',
   riskScore: '8',
   currency: 'COP',
 }
@@ -87,7 +83,7 @@ export default function NumeroDoradoSimulator() {
   const [activeStep, setActiveStep] = useState(0)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const selectedCurrency = form.currency || profile?.baseCurrency || 'COP'
-  const monthlyTarget = Number(form.monthlyLivingCost || 0) || Math.round((Number(form.desiredPostRetirementIncome || 0) || 0) / 12)
+  const monthlyTarget = Math.round((Number(form.desiredPostRetirementIncome || 0) || 0) / 12)
   const yearsToRetirement = Math.max(0, Number(form.retirementAge || 0) - Number(form.age || 0))
   const journeyComplete = Boolean(Number(form.age) && Number(form.retirementAge) && Number(form.desiredPostRetirementIncome))
 
@@ -141,13 +137,20 @@ export default function NumeroDoradoSimulator() {
   }
 
   const updateField = (key: string, value: string | number) => {
-    setForm(current => ({ ...current, [key]: String(value) }))
+    setForm(current => {
+      const next = { ...current, [key]: String(value) }
+      if (key === 'estimatedInflation' || key === 'expectedReturnRate') {
+        const expected = Number(next.expectedReturnRate || 0)
+        const inflation = Number(next.estimatedInflation || 0)
+        next.netReturn = String(expected - inflation)
+      }
+      return next
+    })
   }
 
   const updateMonthlyTarget = (monthly: number) => {
     setForm(current => ({
       ...current,
-      monthlyLivingCost: String(monthly),
       desiredPostRetirementIncome: String(monthly * 12),
     }))
   }
@@ -208,9 +211,9 @@ export default function NumeroDoradoSimulator() {
                 </p>
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                <Metric title="Meta a valor presente" value={formatCurrency(result.results.presentValueGoal, selectedCurrency)} />
-                <Metric title="Faltante estimado" value={formatCurrency(result.results.fundsNeeded, selectedCurrency)} />
+              <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+                <Metric title="Total aportado (Bolsillo)" value={formatCurrency(result.results.totalOutPocket, selectedCurrency)} />
+                <Metric title="Rendimientos generados" value={formatCurrency(result.results.totalReturns, selectedCurrency)} />
                 <Metric title="Ahorro mensual sugerido" value={formatCurrency(result.results.monthlySavingsWithReturn, selectedCurrency)} />
               </div>
 
@@ -332,8 +335,8 @@ function GoldenJourney({
             <div className="mt-6 grid grid-cols-2 gap-3">
               <GoldenSignal label="Ingreso mensual objetivo" value={formatCurrency(monthlyTarget, selectedCurrency)} />
               <GoldenSignal label="Años para construirlo" value={`${yearsToRetirement || '—'} años`} />
-              <GoldenSignal label="Ahorro actual" value={formatCurrency(form.totalSavings || 0, selectedCurrency)} />
-              <GoldenSignal label="Preview estimado" value={formatCurrency(estimatedPreview, selectedCurrency)} />
+              <GoldenSignal label="Ahorro actual" value={formatCurrency(form.totalSavings || 0, selectedCurrency)} className="col-span-2" />
+              <GoldenSignal label="Preview estimado" value={formatCurrency(estimatedPreview, selectedCurrency)} className="col-span-2" />
             </div>
           </div>
         </div>
@@ -427,7 +430,7 @@ function GoldenJourney({
                 <p className="mt-3 font-heading text-4xl font-black text-mia-cream">{formatCurrency(estimatedPreview, selectedCurrency)}</p>
                 <p className="mt-3 text-sm text-neutral">Capital estimado para producir {formatCurrency(monthlyTarget, selectedCurrency)} mensuales.</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-1">
                 <GoldenSignal label="Actual" value={formatCurrency(form.totalSavings || 0, selectedCurrency)} />
                 <GoldenSignal label="Gap aprox." value={formatCurrency(Math.max(estimatedPreview - Number(form.totalSavings || 0), 0), selectedCurrency)} />
                 <GoldenSignal label="Ingreso anual" value={formatCurrency(form.desiredPostRetirementIncome || 0, selectedCurrency)} />
@@ -472,11 +475,11 @@ function GoldenJourney({
                   <input
                     type="number"
                     inputMode="decimal"
-                    min="0"
                     value={form[field.key] ?? ''}
                     onChange={event => updateField(field.key, event.target.value)}
                     placeholder={field.placeholder}
-                    className="w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm text-mia-cream outline-none transition focus:border-mf-coral"
+                    disabled={field.key === 'netReturn'}
+                    className={`w-full rounded-xl border border-mia-border bg-mia-card px-4 py-3 text-sm text-mia-cream outline-none transition focus:border-mf-coral ${field.key === 'netReturn' ? 'opacity-60 cursor-not-allowed' : ''}`}
                   />
                   <span className="min-w-10 text-xs font-semibold text-neutral">{field.suffix === 'money' ? selectedCurrency : field.suffix}</span>
                 </div>
@@ -499,11 +502,12 @@ function StepHeader({ eyebrow, title, text }: { eyebrow: string; title: string; 
   )
 }
 
-function GoldenSignal({ label, value }: { label: string; value: string }) {
+function GoldenSignal({ label, value, className = '' }: { label: string; value: string; className?: string }) {
+  const isLong = value.length > 11;
   return (
-    <div className="rounded-2xl border border-[#B8860B]/25 bg-white/58 p-3 shadow-sm shadow-[#B8860B]/10 backdrop-blur-sm">
+    <div className={`rounded-2xl border border-[#B8860B]/25 bg-white/58 p-3 shadow-sm shadow-[#B8860B]/10 backdrop-blur-sm ${className}`}>
       <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#7A4E00]/75">{label}</p>
-      <p className="mt-1 break-words font-heading text-lg font-black tracking-[-0.02em] text-[#201506]">{value}</p>
+      <p className={`mt-1 break-words font-heading font-black tracking-[-0.04em] text-[#201506] ${isLong ? 'text-sm md:text-base' : 'text-lg'}`}>{value}</p>
     </div>
   )
 }
@@ -583,8 +587,8 @@ function GoldenNumberResultModal({ result, currency, onClose }: { result: any; c
         </div>
 
         <div className="grid gap-3 bg-mia-card p-5 sm:grid-cols-3 sm:p-6">
-          <Metric title="Meta a valor presente" value={formatCurrency(result.results.presentValueGoal, currency)} />
-          <Metric title="Faltante estimado" value={formatCurrency(result.results.fundsNeeded, currency)} />
+          <Metric title="Total aportado (Bolsillo)" value={formatCurrency(result.results.totalOutPocket, currency)} />
+          <Metric title="Rendimientos generados" value={formatCurrency(result.results.totalReturns, currency)} />
           <Metric title="Ahorro mensual sugerido" value={formatCurrency(result.results.monthlySavingsWithReturn, currency)} />
         </div>
 
@@ -605,6 +609,8 @@ function GoldenNumberResultModal({ result, currency, onClose }: { result: any; c
 type ProjectionPoint = {
   age: number
   balance: number
+  outOfPocket: number
+  returns: number
   phase: 'acumulación' | 'retiro'
 }
 
@@ -621,18 +627,22 @@ function buildSavingsProjection(result: any): ProjectionPoint[] {
   const desiredIncome = Math.max(Number(input.desiredPostRetirementIncome || 0) - Number(input.otherIncomeSources || 0), 0)
   const points: ProjectionPoint[] = []
   let balance = initialSavings
+  let outOfPocket = initialSavings
 
   for (let currentAge = age; currentAge <= lifeExpectancy; currentAge += 1) {
     const yearIndex = currentAge - age
     points.push({
       age: currentAge,
       balance: Math.max(balance, 0),
+      outOfPocket: Math.max(Math.min(outOfPocket, balance), 0),
+      returns: Math.max(balance - Math.min(outOfPocket, balance), 0),
       phase: currentAge < retirementAge ? 'acumulación' : 'retiro',
     })
 
     if (currentAge < retirementAge) {
       const annualSaving = baseAnnualSaving * Math.pow(1 + inflation, yearIndex)
       balance = balance * (1 + expectedReturn) + annualSaving
+      outOfPocket += annualSaving
     } else {
       const retirementYear = currentAge - retirementAge
       const annualWithdrawal = desiredIncome * Math.pow(1 + inflation, retirementAge - age + retirementYear)
@@ -675,7 +685,8 @@ function SavingsProjectionChart({ result, currency }: { result: any; currency: s
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-neutral">
-          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-[#F5A623]" /> Ahorro acumulado</span>
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-[#D4AF37]" /> Aportado (Bolsillo)</span>
+          <span className="inline-flex items-center gap-2"><span className="h-3 w-3 rounded-sm bg-[#F5A623]" /> Rendimientos</span>
           <span className="inline-flex items-center gap-2"><span className="h-5 border-l border-dashed border-[#D4AF37]" /> Retiro</span>
         </div>
       </div>
@@ -707,7 +718,7 @@ function SavingsProjectionChart({ result, currency }: { result: any; currency: s
                 borderRadius: 14,
                 color: '#fff',
               }}
-              formatter={(value: unknown) => [formatCurrency(value, currency), 'Ahorro acumulado']}
+              formatter={(value: unknown, name: string) => [formatCurrency(value, currency), name]}
               labelFormatter={(label) => `Edad: ${label} años`}
             />
             {retirementAge > 0 && (
@@ -718,7 +729,8 @@ function SavingsProjectionChart({ result, currency }: { result: any; currency: s
                 label={{ value: `Retiro ${retirementAge}`, position: 'insideTopRight', fill: '#B8860B', fontSize: 12, fontWeight: 700 }}
               />
             )}
-            <Bar dataKey="balance" name="Ahorro acumulado" fill="#F5A623" radius={[6, 6, 0, 0]} maxBarSize={14} />
+            <Bar dataKey="outOfPocket" name="Dinero aportado (Bolsillo)" stackId="a" fill="#D4AF37" />
+            <Bar dataKey="returns" name="Rendimientos generados" stackId="a" fill="#F5A623" radius={[6, 6, 0, 0]} maxBarSize={14} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -770,8 +782,8 @@ async function downloadGoldenNumberPdf(result: any, currency: string) {
   addSectionTitle('Resultados principales')
   const rows = [
     ['Número Dorado', formatCurrency(results.goldenNumber, currency)],
-    ['Meta a valor presente', formatCurrency(results.presentValueGoal, currency)],
-    ['Faltante estimado', formatCurrency(results.fundsNeeded, currency)],
+    ['Total aportado (Bolsillo)', formatCurrency(results.totalOutPocket, currency)],
+    ['Rendimientos generados', formatCurrency(results.totalReturns, currency)],
     ['Ahorro mensual sugerido', formatCurrency(results.monthlySavingsWithReturn, currency)],
     ['Ahorro anual sugerido', formatCurrency(results.firstYearSavingsWithReturn, currency)],
   ]

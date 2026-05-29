@@ -7,6 +7,7 @@ export const DEFAULT_PILLARS: string[] = [
   'Reserva de Oxígeno',
   'Cuenta de Retiro',
   'Cuenta de Inversiones',
+  'Extracto de Inversión',
 ]
 
 export const DEFAULT_ENTITIES: string[] = [
