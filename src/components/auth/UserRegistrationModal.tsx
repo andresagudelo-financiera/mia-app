@@ -106,10 +106,26 @@ function validatePassword(password?: string) {
 }
 
 
-function getCurrentUtmSource() {
-  if (typeof window === 'undefined') return 'direct'
+function getCurrentUtms() {
+  if (typeof window === 'undefined') {
+    return {
+      utm_source: 'direct',
+      utm_medium: '',
+      utm_campaign: '',
+      utm_content: '',
+      utm_term: '',
+    }
+  }
+
   const params = new URLSearchParams(window.location.search)
-  return params.get('utm_source') || params.get('utmSource') || 'direct'
+
+  return {
+    utm_source: params.get('utm_source') || params.get('utmSource') || 'direct',
+    utm_medium: params.get('utm_medium') || params.get('utmMedium') || '',
+    utm_campaign: params.get('utm_campaign') || params.get('utmCampaign') || '',
+    utm_content: params.get('utm_content') || params.get('utmContent') || '',
+    utm_term: params.get('utm_term') || params.get('utmTerm') || '',
+  }
 }
 
 export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad', backHref = '/calculadoras', backLabel = 'Volver' }: Props) {
@@ -268,7 +284,7 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
         phone: fullPhone,
         baseCurrency: data.baseCurrency,
         password: data.password || '',
-        utm_source: getCurrentUtmSource(),
+        ...getCurrentUtms(),
       }, toolName)
       setBaseCurrency(data.baseCurrency)
       pushEvent('user_registered', { currency: data.baseCurrency, has_phone: true })

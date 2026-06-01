@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Trash2, ArrowRightLeft, ChevronRight, Info } from 'lucide-react'
+import { Plus, Trash2, ArrowRightLeft, ChevronRight, Info, Upload } from 'lucide-react'
 import { useRentabilidadStore } from '@/stores/rentabilidad.store'
 import { pushEvent } from '@/lib/analytics'
 import { formatNumber, formatDate } from '@/lib/formatters'
-import { computeFlowLocal, computeFlowUSD } from '@/lib/financial-calculations'
+import BulkImportWizard from './BulkImportWizard'
 
 const schema = z.object({
   investmentName: z.string().min(1, 'Selecciona una inversión'),
@@ -25,10 +25,13 @@ interface Props {
 }
 
 export default function TransactionsPanel({ onGoToSnapshots }: Props) {
-  const { investments, transactions, config, addTransaction, removeTransaction } = useRentabilidadStore()
+  const { investments, transactions, config, addTransaction, removeTransaction, removeTransactions } = useRentabilidadStore()
   const [showForm, setShowForm] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [filterInv, setFilterInv] = useState<string>('all')
   const [hasTracked, setHasTracked] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
 
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -64,18 +67,59 @@ export default function TransactionsPanel({ onGoToSnapshots }: Props) {
   const displayed = filterInv === 'all' ? transactions : transactions.filter(t => t.investmentName === filterInv)
   const sorted = [...displayed].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+  const toggleSelectAll = () => {
+    if (selectedIds.length === sorted.length && sorted.length > 0) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(sorted.map(t => t.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const handleBulkDelete = () => {
+    setShowBulkConfirm(true)
+  }
+
+  const confirmBulkDelete = () => {
+    removeTransactions(selectedIds)
+    setSelectedIds([])
+    setShowBulkConfirm(false)
+  }
+
   const field = 'w-full px-3 py-2.5 bg-mia-surface border border-mia-border rounded-xl text-sm text-mia-cream focus:outline-none focus:border-mf-coral appearance-none'
 
   if (investments.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="p-5 bg-mia-blue/10 rounded-2xl mb-6">
-          <ArrowRightLeft className="w-10 h-10 text-mia-blue" />
+        <div className="p-5 bg-mf-coral/10 rounded-2xl mb-6">
+          <ArrowRightLeft className="w-10 h-10 text-mf-coral" />
         </div>
         <h2 className="text-xl font-heading font-bold text-mia-cream mb-2">Primero agrega inversiones</h2>
-        <p className="text-neutral text-sm max-w-sm">
-          Necesitas al menos una inversión en el módulo <strong>B</strong> antes de registrar flujos.
+        <p className="text-neutral text-sm max-w-sm mb-6">
+          Necesitas al menos una inversión en el módulo <strong>B</strong> antes de registrar flujos manuales, o puedes importar tu extracto para crearlas automáticamente.
         </p>
+        <button
+          onClick={() => setShowBulkImport(true)}
+          className="flex items-center gap-2 bg-gradient-mf text-white font-bold px-8 py-4 rounded-xl hover:opacity-90 transition-all shadow-lg shadow-mf-coral/20 hover:scale-105"
+        >
+          <Upload className="w-5 h-5" />
+          Importar Extracto de Inversión
+        </button>
+
+        {showBulkImport && (
+          <BulkImportWizard 
+            onClose={() => setShowBulkImport(false)}
+            onSuccess={(count) => {
+              if (!hasTracked) {
+                pushEvent('transaction_added', { method: 'bulk_import', count })
+                setHasTracked(true)
+              }
+            }}
+          />
+        )}
       </div>
     )
   }
@@ -92,28 +136,37 @@ export default function TransactionsPanel({ onGoToSnapshots }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-col gap-4">
         <div>
           <h2 className="font-heading font-bold text-mia-cream text-lg">C · Entradas y Salidas ({transactions.length})</h2>
           <p className="text-neutral text-sm">Aportes y movimientos — equivalente a &ldquo;Entradas y salidas&rdquo; del Excel</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
           <select
             value={filterInv}
             onChange={e => setFilterInv(e.target.value)}
-            className="px-3 py-2 bg-mia-surface border border-mia-border rounded-xl text-sm text-mia-cream focus:outline-none"
+            className="flex-1 px-3 py-2 bg-mia-surface border border-mia-border rounded-xl text-sm text-mia-cream focus:outline-none min-w-[200px]"
           >
             <option value="all">Todas las inversiones</option>
             {investments.map(inv => <option key={inv.id} value={inv.name}>{inv.name}</option>)}
           </select>
           {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 bg-gradient-mf text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity"
-            >
-              <Plus className="w-4 h-4" />
-              Agregar flujo
-            </button>
+            <div className="flex gap-2 flex-wrap shrink-0">
+              <button
+                onClick={() => setShowBulkImport(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-mf text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:opacity-90 transition-all shadow-md shadow-mf-coral/10 hover:scale-105"
+              >
+                <Upload className="w-4 h-4" />
+                Importar Extracto de Inversión
+              </button>
+              <button
+                onClick={() => setShowForm(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-mf text-white text-sm font-bold px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-4 h-4" />
+                Agregar flujo
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -234,10 +287,55 @@ export default function TransactionsPanel({ onGoToSnapshots }: Props) {
         </div>
       ) : (
         <>
+          {/* Bulk Delete Confirm Modal */}
+          {showBulkConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-mia-black/80 backdrop-blur-sm p-4">
+              <div className="glass max-w-md w-full rounded-3xl border border-loss/30 bg-loss/5 p-8 text-center animate-in fade-in zoom-in duration-300">
+                <div className="w-16 h-16 bg-loss/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Trash2 className="w-8 h-8 text-loss" />
+                </div>
+                <h2 className="text-2xl font-heading font-bold text-mia-cream mb-3">¿Eliminar {selectedIds.length} transacci{selectedIds.length === 1 ? 'ón' : 'ones'}?</h2>
+                <p className="text-neutral mb-8 leading-relaxed">
+                  Esta acción no se puede deshacer y alterará los cálculos de rentabilidad y saldo actual de las inversiones asociadas.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowBulkConfirm(false)} className="flex-1 glass text-neutral font-bold py-3.5 rounded-xl hover:text-mia-cream transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={confirmBulkDelete} className="flex-1 bg-loss text-white font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity">
+                    Sí, eliminar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedIds.length > 0 && (
+            <div className="flex items-center justify-between mb-4 bg-mf-coral/10 border border-mf-coral/30 p-3 rounded-xl">
+              <span className="text-sm font-medium text-mia-cream">
+                {selectedIds.length} seleccionad{selectedIds.length === 1 ? 'o' : 'os'}
+              </span>
+              <button
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 bg-loss text-white text-sm font-bold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <Trash2 className="w-4 h-4" />
+                Eliminar {selectedIds.length}
+              </button>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[900px]">
               <thead>
                 <tr className="bg-mia-surface/50">
+                  <th className="px-3 py-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={sorted.length > 0 && selectedIds.length === sorted.length}
+                      onChange={toggleSelectAll}
+                      className="rounded border-neutral focus:ring-mf-coral bg-mia-black text-mf-coral"
+                    />
+                  </th>
                   {[
                     { label: 'Pilar', hint: '' },
                     { label: 'Entidad', hint: '' },
@@ -270,6 +368,14 @@ export default function TransactionsPanel({ onGoToSnapshots }: Props) {
 
                   return (
                     <tr key={tx.id} className={`border-t border-mia-border hover:bg-mia-surface/30 transition-colors group ${i % 2 === 1 ? 'bg-mia-surface/10' : ''}`}>
+                      <td className="px-3 py-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(tx.id)}
+                          onChange={() => toggleSelect(tx.id)}
+                          className="rounded border-neutral focus:ring-mf-coral bg-mia-black text-mf-coral"
+                        />
+                      </td>
                       <td className="px-3 py-3">
                         <span className="text-xs font-medium text-mia-blue bg-mia-blue/10 px-2 py-0.5 rounded-full whitespace-nowrap">{txPilar}</span>
                       </td>
@@ -325,6 +431,18 @@ export default function TransactionsPanel({ onGoToSnapshots }: Props) {
             </div>
           )}
         </>
+      )}
+
+      {showBulkImport && (
+        <BulkImportWizard 
+          onClose={() => setShowBulkImport(false)}
+          onSuccess={(count) => {
+            if (!hasTracked) {
+              pushEvent('transaction_added', { method: 'bulk_import', count })
+              setHasTracked(true)
+            }
+          }}
+        />
       )}
     </div>
   )

@@ -80,11 +80,13 @@ function InvestmentForm({
 }
 
 export default function InvestmentsPanel({ onGoToTransactions }: { onGoToTransactions?: () => void }) {
-  const { investments, transactions, snapshots, addInvestment, updateInvestment, removeInvestment } = useRentabilidadStore()
+  const { investments, transactions, snapshots, addInvestment, updateInvestment, removeInvestment, removeInvestments } = useRentabilidadStore()
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [hasTrackedAdd, setHasTrackedAdd] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false)
 
   const handleAdd = (data: FormData) => {
     const success = addInvestment(data)
@@ -104,6 +106,28 @@ export default function InvestmentsPanel({ onGoToTransactions }: { onGoToTransac
   const handleDelete = (id: string) => {
     removeInvestment(id)
     setDeleteId(null)
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === investments.length && investments.length > 0) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds(investments.map(i => i.id))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  const handleBulkDelete = () => {
+    setShowBulkConfirm(true)
+  }
+
+  const confirmBulkDelete = () => {
+    removeInvestments(selectedIds)
+    setSelectedIds([])
+    setShowBulkConfirm(false)
   }
 
   const getInvCounts = (name: string) => ({
@@ -179,11 +203,57 @@ export default function InvestmentsPanel({ onGoToTransactions }: { onGoToTransac
         )
       })()}
 
+      {/* Bulk Delete Confirm Modal */}
+      {showBulkConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-mia-black/80 backdrop-blur-sm p-4">
+          <div className="glass max-w-md w-full rounded-3xl border border-loss/30 bg-loss/5 p-8 text-center animate-in fade-in zoom-in duration-300">
+            <div className="w-16 h-16 bg-loss/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trash2 className="w-8 h-8 text-loss" />
+            </div>
+            <h2 className="text-2xl font-heading font-bold text-mia-cream mb-3">¿Eliminar {selectedIds.length} inversion{selectedIds.length === 1 ? 'es' : 'es'}?</h2>
+            <p className="text-neutral mb-8 leading-relaxed">
+              Esta acción también eliminará todas las transacciones y cortes asociados a {selectedIds.length === 1 ? 'ella' : 'ellas'}. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowBulkConfirm(false)} className="flex-1 glass text-neutral font-bold py-3.5 rounded-xl hover:text-mia-cream transition-colors">
+                Cancelar
+              </button>
+              <button onClick={confirmBulkDelete} className="flex-1 bg-loss text-white font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity">
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between mb-4 bg-mf-coral/10 border border-mf-coral/30 p-3 rounded-xl">
+          <span className="text-sm font-medium text-mia-cream">
+            {selectedIds.length} seleccionad{selectedIds.length === 1 ? 'a' : 'as'}
+          </span>
+          <button
+            onClick={handleBulkDelete}
+            className="flex items-center gap-2 bg-loss text-white text-sm font-bold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
+          >
+            <Trash2 className="w-4 h-4" />
+            Eliminar {selectedIds.length}
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-mia-border">
+              <th className="px-4 py-3 w-10 text-center">
+                <input
+                  type="checkbox"
+                  checked={investments.length > 0 && selectedIds.length === investments.length}
+                  onChange={toggleSelectAll}
+                  className="rounded border-neutral focus:ring-mf-coral bg-mia-black text-mf-coral"
+                />
+              </th>
               {['Pilar', 'Nombre', 'Entidad', 'Moneda', 'Acciones'].map(h => (
                 <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-neutral uppercase tracking-wider">
                   {h}
@@ -195,7 +265,7 @@ export default function InvestmentsPanel({ onGoToTransactions }: { onGoToTransac
             {investments.map(inv => (
               editingId === inv.id ? (
                 <tr key={inv.id} className="border-b border-mia-border">
-                  <td colSpan={5} className="px-4 py-4">
+                  <td colSpan={6} className="px-4 py-4">
                     <InvestmentForm
                       defaultValues={inv}
                       onSubmit={data => handleEdit(inv.id, data)}
@@ -205,6 +275,14 @@ export default function InvestmentsPanel({ onGoToTransactions }: { onGoToTransac
                 </tr>
               ) : (
                 <tr key={inv.id} className="border-b border-mia-border hover:bg-mia-surface/30 transition-colors group">
+                  <td className="px-4 py-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(inv.id)}
+                      onChange={() => toggleSelect(inv.id)}
+                      className="rounded border-neutral focus:ring-mf-coral bg-mia-black text-mf-coral"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <span className="text-xs font-medium text-mia-blue bg-mia-blue/10 px-2 py-1 rounded-full">{inv.pilar}</span>
                   </td>

@@ -284,6 +284,7 @@ export default function Navbar({ variant = 'default' }: Props) {
   const links = [
     { href: '/', label: 'Inicio' },
     { href: '/calculadoras', label: 'Calculadoras' },
+    { href: '/academia', label: 'Cursos' },
     ...(profile?.name ? [{ href: '/perfil', label: 'Mi perfil' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]

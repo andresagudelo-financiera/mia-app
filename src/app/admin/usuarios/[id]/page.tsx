@@ -659,8 +659,8 @@ function GoldenNumberAdminView({ data }: { data: any }) {
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <AdminResultMetric label="Meta a valor presente" value={formatMoney(results.presentValueGoal, currency)} />
-          <AdminResultMetric label="Faltante estimado" value={formatMoney(results.fundsNeeded, currency)} />
+          <AdminResultMetric label="Total aportado (Bolsillo)" value={formatMoney(results.totalOutPocket, currency)} />
+          <AdminResultMetric label="Rendimientos generados" value={formatMoney(results.totalReturns, currency)} />
           <AdminResultMetric label="Ahorro mensual sugerido" value={formatMoney(results.monthlySavingsWithReturn, currency)} />
         </div>
       </div>
