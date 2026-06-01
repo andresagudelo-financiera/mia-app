@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     console.log(text.substring(0, 1500));
     console.log('--- TERMINA TEXTO DEL PDF ---');
     
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lines = text.split('\n').map((l: string) => l.trim()).filter(Boolean);
 
     // Heuristic regex to find transactions
     // 1. Generic format: Date (12/05/2023), Description, Amount (-123.45)
@@ -66,10 +66,10 @@ export async function POST(req: NextRequest) {
     if (results.length === 0 && (text.includes('PORVENIR S.A.') || text.includes('Valor\nAporte') || text.includes('Valor Aporte') || text.includes('del aporte'))) {
       const pages = text.split(/-- \d+ of \d+ --/);
       for (const page of pages) {
-        const pageLines = page.split('\n').map(l => l.trim()).filter(Boolean);
+        const pageLines = page.split('\n').map((l: string) => l.trim()).filter(Boolean);
         let startObj = pageLines.indexOf('Objetivo');
         let startDates = pageLines.indexOf('Portafolio');
-        let startVal = pageLines.findIndex((l, idx) => l === 'Fecha' && pageLines[idx+1] === 'del aporte');
+        let startVal = pageLines.findIndex((l: string, idx: number) => l === 'Fecha' && pageLines[idx+1] === 'del aporte');
         
         if (startObj !== -1 && startDates !== -1 && startVal !== -1) {
           const objs = [];
