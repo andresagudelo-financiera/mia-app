@@ -41,11 +41,13 @@ interface RentabilidadStore extends RentabilidadStoreData {
   addInvestment: (inv: Omit<Investment, 'id' | 'createdAt'>) => boolean // returns false if name duplicate
   updateInvestment: (id: string, updates: Partial<Omit<Investment, 'id'>>) => void
   removeInvestment: (id: string) => void
+  removeInvestments: (ids: string[]) => void
 
   // Transaction actions
   addTransaction: (tx: Omit<Transaction, 'id'>) => void
   updateTransaction: (id: string, updates: Partial<Omit<Transaction, 'id'>>) => void
   removeTransaction: (id: string) => void
+  removeTransactions: (ids: string[]) => void
 
   // Snapshot actions
   addSnapshot: (snap: Omit<Snapshot, 'id'>) => void
@@ -298,11 +300,26 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       removeInvestment: (id) =>
         set((s) => {
           const inv = s.investments.find(i => i.id === id)
-          if (!inv) return {}
+          if (!inv) return s
+
           return {
             investments: s.investments.filter(i => i.id !== id),
             transactions: s.transactions.filter(t => t.investmentName !== inv.name),
             snapshots: s.snapshots.filter(snap => snap.investmentName !== inv.name),
+            lastUpdated: nowIso(),
+          }
+        }),
+
+      removeInvestments: (ids) =>
+        set((s) => {
+          const invsToRemove = s.investments.filter(i => ids.includes(i.id))
+          if (invsToRemove.length === 0) return s
+          const namesToRemove = new Set(invsToRemove.map(i => i.name))
+
+          return {
+            investments: s.investments.filter(i => !ids.includes(i.id)),
+            transactions: s.transactions.filter(t => !namesToRemove.has(t.investmentName)),
+            snapshots: s.snapshots.filter(snap => !namesToRemove.has(snap.investmentName)),
             lastUpdated: nowIso(),
           }
         }),
@@ -323,6 +340,12 @@ export const useRentabilidadStore = create<RentabilidadStore>()(
       removeTransaction: (id) =>
         set((s) => ({
           transactions: s.transactions.filter(t => t.id !== id),
+          lastUpdated: nowIso(),
+        })),
+
+      removeTransactions: (ids) =>
+        set((s) => ({
+          transactions: s.transactions.filter(t => !ids.includes(t.id)),
           lastUpdated: nowIso(),
         })),
 

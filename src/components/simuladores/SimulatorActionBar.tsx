@@ -140,22 +140,12 @@ export default function SimulatorActionBar({
         <div>
           <p className="font-heading text-lg font-bold text-mia-cream">¿Qué quieres hacer ahora?</p>
           <p className="text-sm text-neutral">
-            {showAdvisor ? 'Agenda asesoría, descarga tus resultados o compártelos con alguien.' : 'Descarga tus resultados o compártelos con alguien.'}
+            Descarga tus resultados o compártelos con alguien.
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          {showAdvisor && (
-            <a
-              href={links.advisor}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-mf px-4 py-3 text-sm font-bold text-white shadow-lg shadow-mf-coral/20 transition hover:opacity-90"
-            >
-              <CalendarCheck className="h-4 w-4" />
-              Agendar asesoría
-            </a>
-          )}
+
 
           {downloadSlot ? (
             downloadSlot
