@@ -63,7 +63,7 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
     slug: 'desafio-mundial',
     name: 'Desafío Mundial 2030',
     description: 'Tracker de ahorro diario con cuotas. Marca cada día, acumula tu racha y llega al FIFA World Cup 2030 con el hábito construido.',
-    status: 'active',
+    status: process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE === 'true' ? 'active' : 'hidden',
     accessType: 'free',
   },
 ]
@@ -82,5 +82,7 @@ export function mergeSimulatorCatalog(
     })
   }
 
-  return merged
+  // Filtrar simuladores que estén inactivos debido a flags de feature
+  return merged.filter(simulator => simulator.status === 'active')
 }
+

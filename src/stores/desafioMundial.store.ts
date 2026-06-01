@@ -30,9 +30,9 @@ interface DesafioMundialState {
 }
 
 interface DesafioMundialActions {
-  registerProfile: (data: DesafioMundialProfile) => void
-  agregarAporte: (monto: number, moneda: string) => void
-  eliminarAporte: (id: string) => void
+  setDashboardData: (data: { isRegistered: boolean; aportes: Aporte[]; profile: DesafioMundialProfile | null }) => void
+  agregarAporteLocal: (aporte: Aporte) => void
+  eliminarAporteLocal: (id: string) => void
   clearAll: () => void
   getAportesHoy: () => Aporte[]
   getTotalHoy: () => number
@@ -40,6 +40,10 @@ interface DesafioMundialActions {
   getRacha: () => number
   getTotalDiasCompletados: () => number
   getTotalAcumulado: () => number
+  // Nuevo: devuelve cuántos días virtuales están 100% llenos
+  getDiasLlenosAcumulado: () => number
+  // Nuevo: dado un índice de día virtual (0-based), devuelve 0..1 de llenado
+  getDiaFill: (index: number) => number
 }
 
 type DesafioMundialStore = DesafioMundialState & DesafioMundialActions
@@ -61,15 +65,17 @@ export const useDesafioMundialStore = create<DesafioMundialStore>()(
       aportes: [],
       isRegistered: false,
 
-      registerProfile: (data) => set({ profile: data, isRegistered: true }),
+      setDashboardData: (data) => set({
+        profile: data.profile,
+        aportes: data.aportes,
+        isRegistered: data.isRegistered
+      }),
 
-      agregarAporte: (monto, moneda) => {
-        const id = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
-        const aporte: Aporte = { id, fecha: todayStr(), monto, moneda, timestamp: Date.now() }
+      agregarAporteLocal: (aporte) => {
         set((s) => ({ aportes: [aporte, ...s.aportes] }))
       },
 
-      eliminarAporte: (id) =>
+      eliminarAporteLocal: (id) =>
         set((s) => ({ aportes: s.aportes.filter((a) => a.id !== id) })),
 
       clearAll: () => set({ profile: null, aportes: [], isRegistered: false }),
@@ -89,24 +95,57 @@ export const useDesafioMundialStore = create<DesafioMundialStore>()(
       getTotalAcumulado: () =>
         get().aportes.reduce((s, a) => s + a.monto, 0),
 
+      getDiasLlenosAcumulado: () => {
+        const total = get().aportes.reduce((s, a) => s + a.monto, 0)
+        return Math.floor(total / MONTO_MINIMO_DIA)
+      },
+
+      getDiaFill: (index: number) => {
+        const total = get().aportes.reduce((s, a) => s + a.monto, 0)
+        const inicio = index * MONTO_MINIMO_DIA
+        if (total <= inicio) return 0
+        const restante = total - inicio
+        return Math.min(1, restante / MONTO_MINIMO_DIA)
+      },
+
       getRacha: () => {
         const { aportes } = get()
         if (aportes.length === 0) return 0
-        const fechas = [...new Set(aportes.map((a) => a.fecha))].sort().reverse()
-        const t = todayStr()
+
+        // Filtramos las fechas que efectivamente cumplen con el mínimo diario
+        const fechasCompletadas = new Set(
+          [...new Set(aportes.map((a) => a.fecha))].filter(
+            (f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA
+          )
+        )
+
+        const hoy = todayStr()
+        const ayerObj = new Date(hoy)
+        ayerObj.setDate(ayerObj.getDate() - 1)
+        const ayer = ayerObj.toISOString().slice(0, 10)
+
+        let cursor = hoy
+        // Si hoy no se ha completado pero ayer sí, comenzamos a contar la racha desde ayer
+        if (!fechasCompletadas.has(hoy) && fechasCompletadas.has(ayer)) {
+          cursor = ayer
+        } else if (!fechasCompletadas.has(hoy)) {
+          // Si no completó hoy ni ayer, la racha ya se rompió
+          return 0
+        }
+
         let racha = 0
-        const cursor = new Date(t)
-        for (const fecha of fechas) {
-          const cursorFecha = cursor.toISOString().slice(0, 10)
-          if (fecha === cursorFecha && totalDelDia(aportes, fecha) >= MONTO_MINIMO_DIA) {
+        const dateCursor = new Date(cursor)
+
+        while (true) {
+          const checkFecha = dateCursor.toISOString().slice(0, 10)
+          if (fechasCompletadas.has(checkFecha)) {
             racha++
-            cursor.setDate(cursor.getDate() - 1)
-          } else if (fecha === cursorFecha) {
-            break
+            dateCursor.setDate(dateCursor.getDate() - 1)
           } else {
             break
           }
         }
+
         return racha
       },
     }),
@@ -116,3 +155,4 @@ export const useDesafioMundialStore = create<DesafioMundialStore>()(
     }
   )
 )
+
