@@ -3,6 +3,7 @@ import { Inter, Roboto, Syne } from 'next/font/google'
 import Script from 'next/script'
 import AnalyticsPageView from '@/components/analytics/AnalyticsPageView'
 import ClarityProvider from '@/components/analytics/ClarityProvider'
+import UtmProvider from '@/components/analytics/UtmProvider'
 import './globals.css'
 
 const syne = Syne({
@@ -113,6 +114,7 @@ gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });`}
         )}
 
         <ClarityProvider projectId={CLARITY_ID} />
+        <UtmProvider />
 
         {/* Meta Pixel */}
         {META_PIXEL_ID && (

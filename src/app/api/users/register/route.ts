@@ -180,8 +180,19 @@ export async function POST(request: Request) {
     const payload = await response.json().catch(() => null)
 
     if (!response.ok || payload?.errors?.length) {
+      let errorMessage = payload?.errors?.[0]?.message || 'No se pudo crear la cuenta.'
+      
+      // Extraer mensajes de validación específicos si existen
+      const validationErrors = payload?.errors?.[0]?.extensions?.validation
+      if (validationErrors) {
+        const messages = Object.values(validationErrors).flat()
+        if (messages.length > 0) {
+          errorMessage = messages.join(' ')
+        }
+      }
+
       return NextResponse.json(
-        { user: null, error: payload?.errors?.[0]?.message || 'No se pudo crear la cuenta.' },
+        { user: null, error: errorMessage },
         { status: response.ok ? 502 : response.status },
       )
     }
