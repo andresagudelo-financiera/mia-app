@@ -74,10 +74,6 @@ function getMiaUserToken(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
-    return NextResponse.json({ error: 'El Desafío Mundial no está habilitado.' }, { status: 403 })
-  }
-
   const token = getMiaUserToken(request)
   if (!token) {
     return NextResponse.json({ error: 'Debes iniciar sesión para consultar el Desafío Mundial.' }, { status: 401 })
@@ -100,10 +96,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
-    return NextResponse.json({ error: 'El Desafío Mundial no está habilitado.' }, { status: 403 })
-  }
-
   const token = getMiaUserToken(request)
   if (!token) {
     return NextResponse.json({ error: 'Debes iniciar sesión para modificar el Desafío Mundial.' }, { status: 401 })

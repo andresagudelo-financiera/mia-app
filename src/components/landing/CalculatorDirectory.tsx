@@ -158,8 +158,7 @@ function ChallengeCards() {
       </div>
 
       {/* Desafío Mundial */}
-      {process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE === 'true' && (
-        <Link href="/retos/desafio-mundial" className="group block overflow-hidden rounded-3xl border border-mf-orange/30 bg-gradient-to-br from-mf-orange/15 via-mia-card to-mia-black p-6 shadow-xl shadow-mf-orange/5 transition hover:-translate-y-1 hover:border-mf-orange/60 md:p-8">
+      <Link href="/retos/desafio-mundial" className="group block overflow-hidden rounded-3xl border border-mf-orange/30 bg-gradient-to-br from-mf-orange/15 via-mia-card to-mia-black p-6 shadow-xl shadow-mf-orange/5 transition hover:-translate-y-1 hover:border-mf-orange/60 md:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-5">
               <span className="text-5xl">⚽</span>
@@ -178,8 +177,7 @@ function ChallengeCards() {
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
             </span>
           </div>
-        </Link>
-      )}
+      </Link>
     </section>
   )
 }
