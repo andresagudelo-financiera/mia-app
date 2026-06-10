@@ -100,7 +100,7 @@ export default function CalculatorCards() {
       try {
         if (!silent) setLoading(true)
         const data = await adminApi.listPublicSimulators()
-        if (active) setSimulators(mergeSimulatorCatalog(data, { includeDefaults: false }))
+        if (active) setSimulators(mergeSimulatorCatalog(data))
       } catch {
         if (active) setSimulators(mergeSimulatorCatalog(DEFAULT_PUBLIC_SIMULATORS, { includeDefaults: true }))
       } finally {
