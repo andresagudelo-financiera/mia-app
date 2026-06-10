@@ -76,6 +76,6 @@ export function mergeSimulatorCatalog(
     })
   }
 
-  // Filtrar simuladores que estén inactivos debido a flags de feature
-  return merged.filter(simulator => simulator.status === 'active' && !CHALLENGE_SLUGS.has(simulator.slug))
+  // Mostrar activos y próximamente; ocultar deshabilitados/ocultos y retos que no pertenecen a calculadoras.
+  return merged.filter(simulator => ['active', 'coming_soon'].includes(simulator.status) && !CHALLENGE_SLUGS.has(simulator.slug))
 }
