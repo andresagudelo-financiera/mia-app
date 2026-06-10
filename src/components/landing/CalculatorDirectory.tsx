@@ -154,6 +154,27 @@ function ChallengeCards() {
           </p>
         </div>
       </div>
+
+      <Link href="/retos/desafio-mundial" className="group block overflow-hidden rounded-3xl border border-mf-orange/30 bg-gradient-to-br from-mf-orange/15 via-mia-card to-mia-black p-6 shadow-xl shadow-mf-orange/5 transition hover:-translate-y-1 hover:border-mf-orange/60 md:p-8 lg:col-span-2">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-5">
+            <span className="text-5xl">⚽</span>
+            <div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-mf-orange/30 bg-mf-orange/10 px-3 py-1 text-xs font-bold text-mf-orange">
+                <Zap className="h-4 w-4" /> Reto de ahorro · Administrado desde MIA
+              </div>
+              <h2 className="font-heading text-2xl font-bold text-mia-cream md:text-3xl">Desafío Mundial 2030</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-neutral md:text-base">
+                Marca cada día que ahorras desde hoy hasta el FIFA World Cup 2030. Sigue tu racha y construye el hábito antes del torneo.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-xl bg-gradient-mf px-5 py-3 text-sm font-bold text-white shadow-lg shadow-mf-coral/20 md:flex-shrink-0">
+            Unirme al desafío
+            <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
+          </span>
+        </div>
+      </Link>
     </section>
   )
 }

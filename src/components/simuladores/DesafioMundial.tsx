@@ -168,18 +168,6 @@ export default function DesafioMundial() {
     }
   }, [userProfile?.id, userProfile?.authToken, setDashboardData, userProfile?.email])
 
-  if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
-    return (
-      <main className="min-h-screen bg-mia-black px-4 py-20 text-center text-mia-cream sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-md rounded-2xl border border-mia-border bg-mia-card p-8">
-          <Trophy className="mx-auto mb-4 h-12 w-12 text-neutral" />
-          <h2 className="font-heading text-2xl font-bold">Desafío Inactivo</h2>
-          <p className="mt-3 text-sm text-neutral">Este reto de ahorro no está habilitado actualmente por el equipo de MIA. Vuelve pronto.</p>
-        </div>
-      </main>
-    )
-  }
-
   if (!isUserRegistered || !userProfile?.id) {
     return <UserRegistrationModal toolName="desafio-mundial" contentName="desafio_mundial" onClose={() => undefined} />
   }
