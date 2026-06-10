@@ -310,7 +310,7 @@ function resolveLessonVideo(lesson: AcademyLesson): ResolvedAcademyVideo {
     provider,
     videoId,
     embedUrl: provider === 'youtube' && videoId ? null : lesson.embedUrl || lesson.youtubeUrl || null,
-    thumbnailUrl: videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : '/key-visuals/money-flow-01.jpg',
+    thumbnailUrl: videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : '/key-visuals/moneyflow-banner.png',
   }
 }
 

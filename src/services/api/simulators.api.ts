@@ -1,3 +1,5 @@
+import { handleMiaSessionExpired, isMiaSessionExpiredResponse } from '@/lib/session-expiration'
+
 export type SimulatorResponse = {
   id: string
   userId: string
@@ -29,6 +31,9 @@ async function requestSimulatorResponse(path: string, init?: RequestInit): Promi
   const payload = (await response.json().catch(() => null)) as SimulatorApiPayload | null
 
   if (!response.ok) {
+    if (isMiaSessionExpiredResponse(response.status, payload?.error)) {
+      await handleMiaSessionExpired()
+    }
     throw new Error(payload?.error || 'No se pudo guardar la información del simulador.')
   }
 

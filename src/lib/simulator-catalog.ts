@@ -60,6 +60,8 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
   },
 ]
 
+const CHALLENGE_SLUGS = new Set(['desafio-mundial'])
+
 export function mergeSimulatorCatalog(
   simulators: Simulator[],
   options: { includeDefaults?: boolean } = {},
@@ -74,5 +76,6 @@ export function mergeSimulatorCatalog(
     })
   }
 
-  return merged
+  // Filtrar simuladores inactivos y retos que no deben aparecer como calculadoras.
+  return merged.filter(simulator => simulator.status === 'active' && !CHALLENGE_SLUGS.has(simulator.slug))
 }

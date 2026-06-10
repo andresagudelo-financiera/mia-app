@@ -29,7 +29,6 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       cache: 'no-store',
-      next: { revalidate: 0 },
     })
 
     const payload = await response.json().catch(() => null)

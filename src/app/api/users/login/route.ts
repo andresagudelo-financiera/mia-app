@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { setMiaUserAuthCookie } from '@/lib/mia-user-auth-cookie'
 
 const MIA_API_URL = process.env.MIA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql'
 
@@ -12,6 +13,7 @@ const LOGIN_USER = `
       baseCurrency
       registeredAt
       hasCompletedOnboarding
+      authToken
       accesses {
         id
         toolName
@@ -32,6 +34,7 @@ const FREE_ENTRY_TOOLS = new Set([
   'analiza-tu-deuda',
   'perfil-riesgo',
   'numero-dorado',
+  'desafio-mundial',
 ])
 
 type AccessSummary = {
@@ -86,11 +89,11 @@ export async function POST(request: Request) {
 
     const user = payload?.data?.loginUser ?? null
 
-    return NextResponse.json({
+    return setMiaUserAuthCookie(NextResponse.json({
       exists: Boolean(user),
       user,
       access: summarizeToolAccess(user, toolName),
-    })
+    }), user?.authToken)
   } catch (error) {
     console.error('User login failed:', error)
     return NextResponse.json(

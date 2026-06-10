@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { setMiaUserAuthCookie } from '@/lib/mia-user-auth-cookie'
 
 const MIA_API_URL = process.env.MIA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql'
 const GHL_NEW_LEAD_WEBHOOK_URL = process.env.GHL_NEW_LEAD_WEBHOOK_URL || 'https://services.leadconnectorhq.com/hooks/vEh7JAwgMFnBubxjOxId/webhook-trigger/c1bb7b96-3a2c-43fb-bca2-d46dd897edd7'
@@ -118,6 +119,7 @@ const REGISTER_USER = `
       baseCurrency
       registeredAt
       hasCompletedOnboarding
+      authToken
       accesses {
         id
         toolName
@@ -187,6 +189,7 @@ export async function POST(request: Request) {
     }
 
     let user = payload?.data?.registerUser ?? null
+    const authToken = user?.authToken ?? null
 
     if (user?.email) {
       const refreshResponse = await fetch(MIA_API_URL, {
@@ -196,7 +199,7 @@ export async function POST(request: Request) {
         cache: 'no-store',
       })
       const refreshPayload = await refreshResponse.json().catch(() => null)
-      user = refreshPayload?.data?.user || user
+      user = refreshPayload?.data?.user ? { ...refreshPayload.data.user, authToken } : user
     }
 
     const ghlLeadSync = user?.id && user?.email
@@ -214,7 +217,7 @@ export async function POST(request: Request) {
         })
       : { attempted: false, ok: false, reason: 'missing_user' }
 
-    return NextResponse.json({ user, ghlLeadSync })
+    return setMiaUserAuthCookie(NextResponse.json({ user, ghlLeadSync }), user?.authToken)
   } catch (error) {
     console.error('User registration failed:', error)
     return NextResponse.json({ user: null, error: 'No se pudo crear la cuenta.' }, { status: 500 })
