@@ -1,10 +1,21 @@
+import { handleMiaSessionExpired, isMiaSessionExpiredResponse } from '@/lib/session-expiration'
+
+async function parseResponse(response: Response) {
+  const payload = await response.json().catch(() => ({}))
+  if (isMiaSessionExpiredResponse(response.status, payload?.error)) {
+    await handleMiaSessionExpired()
+  }
+  return payload
+}
+
 export const desafioMundialApi = {
-  async getDashboard(userId: string): Promise<any> {
+  async getDashboard(userId: string, authToken?: string): Promise<any> {
     try {
       const response = await fetch(`/api/desafio-mundial/response?userId=${encodeURIComponent(userId)}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
         cache: 'no-store',
       })
-      const payload = await response.json().catch(() => ({}))
+      const payload = await parseResponse(response)
       return payload.dashboard ?? null
     } catch {
       return null
@@ -13,13 +24,17 @@ export const desafioMundialApi = {
 
   async registerParticipant(
     userId: string,
-    data: { displayName: string; country: string; phone?: string; email: string }
+    data: { displayName: string; country: string; phone?: string; email: string },
+    authToken?: string
   ): Promise<any> {
     try {
       // 1. Guardar en base de datos principal (Prisma)
       const dbResponse = await fetch('/api/desafio-mundial/response', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           action: 'register',
           userId,
@@ -29,7 +44,7 @@ export const desafioMundialApi = {
         }),
         cache: 'no-store',
       })
-      const dbPayload = await dbResponse.json().catch(() => ({}))
+      const dbPayload = await parseResponse(dbResponse)
 
       // 2. Registrar en MIA core y enviar a GHL para remarketing
       await fetch('/api/desafio-mundial/register', {
@@ -54,13 +69,17 @@ export const desafioMundialApi = {
 
   async logSaving(
     userId: string,
-    data: { amount: number; date: string; currency: string; email: string; nombre: string }
+    data: { amount: number; date: string; currency: string; email: string; nombre: string },
+    authToken?: string
   ): Promise<any> {
     try {
       // 1. Guardar en base de datos principal (Prisma)
       const dbResponse = await fetch('/api/desafio-mundial/response', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           action: 'logSaving',
           userId,
@@ -70,7 +89,7 @@ export const desafioMundialApi = {
         }),
         cache: 'no-store',
       })
-      const dbPayload = await dbResponse.json().catch(() => ({}))
+      const dbPayload = await parseResponse(dbResponse)
 
       // 2. Enviar evento a GHL
       await fetch('/api/desafio-mundial/aporte', {
@@ -94,11 +113,14 @@ export const desafioMundialApi = {
     }
   },
 
-  async deleteSaving(userId: string, id: string): Promise<boolean> {
+  async deleteSaving(userId: string, id: string, authToken?: string): Promise<boolean> {
     try {
       const response = await fetch('/api/desafio-mundial/response', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           action: 'deleteSaving',
           userId,
@@ -106,11 +128,10 @@ export const desafioMundialApi = {
         }),
         cache: 'no-store',
       })
-      const payload = await response.json().catch(() => ({}))
+      const payload = await parseResponse(response)
       return !!payload.success
     } catch {
       return false
     }
   },
 }
-

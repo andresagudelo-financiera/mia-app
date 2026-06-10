@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: REGISTER_USER,
-        variables: { name, email, phone, baseCurrency: 'USD', password, toolName: 'desafio_mundial' },
+        variables: { name, email, phone, baseCurrency: 'USD', password, toolName: 'desafio-mundial' },
       }),
       cache: 'no-store',
     })

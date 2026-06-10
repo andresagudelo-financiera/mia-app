@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, TrendingUp, Lock, Calculator, ShieldCheck, Gem, HeartPulse, BadgeDollarSign, Route, SearchCheck, Trophy } from 'lucide-react'
+import { ArrowRight, TrendingUp, Lock, Calculator, ShieldCheck, Gem, HeartPulse, BadgeDollarSign, Route, SearchCheck } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
 import { DEFAULT_PUBLIC_SIMULATORS, mergeSimulatorCatalog } from '@/lib/simulator-catalog'
 import type { Simulator } from '@/types/rentabilidad'
@@ -50,12 +50,6 @@ const UI_METADATA: Record<string, any> = {
     iconBg: 'bg-sky-400/10',
     iconColor: 'text-sky-300',
   },
-  'desafio-mundial': {
-    icon: Trophy,
-    accentClass: 'border-mf-orange/40 hover:border-mf-orange',
-    iconBg: 'bg-mf-orange/10',
-    iconColor: 'text-mf-orange',
-  },
   default: {
     icon: Calculator,
     accentClass: 'border-mia-border',
@@ -80,7 +74,6 @@ const CATEGORY_BY_SLUG: Record<string, string> = {
   'diagnostico-financiero-deuda': 'debt',
   'plan-pago-deuda': 'debt',
   'analiza-tu-deuda': 'debt',
-  'desafio-mundial': 'planning',
 }
 
 function matchesFilter(simulator: Simulator, activeFilter: string, search: string) {
@@ -197,7 +190,6 @@ export default function CalculatorCards() {
             'diagnostico-financiero-deuda': '/calculadoras/diagnostico-financiero-deuda',
             'plan-pago-deuda': '/calculadoras/plan-pago-deuda',
             'analiza-tu-deuda': '/calculadoras/analiza-tu-deuda',
-            'desafio-mundial': '/retos/desafio-mundial',
           }
           const href = hrefBySlug[sim.slug] || '#'
 

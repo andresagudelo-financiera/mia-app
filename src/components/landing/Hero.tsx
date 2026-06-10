@@ -11,7 +11,7 @@ export default function Hero() {
       {/* Background */}
       <div className="absolute inset-0">
         <Image
-          src="/key-visuals/money-flow-01.jpg"
+          src="/key-visuals/moneyflow-banner.png"
           alt="Moneyflow background"
           fill
           priority

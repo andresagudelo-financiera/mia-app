@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { MIA_USER_TOKEN_COOKIE, getBearerTokenFromAuthorizationHeader } from '@/lib/mia-user-auth-cookie'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,9 +66,21 @@ type GraphQLPayload<T> = {
   errors?: Array<{ message?: string }>
 }
 
-export async function GET(request: Request) {
+function getMiaUserToken(request: NextRequest) {
+  return (
+    request.cookies.get(MIA_USER_TOKEN_COOKIE)?.value ||
+    getBearerTokenFromAuthorizationHeader(request.headers.get('authorization'))
+  )
+}
+
+export async function GET(request: NextRequest) {
   if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
     return NextResponse.json({ error: 'El Desafío Mundial no está habilitado.' }, { status: 403 })
+  }
+
+  const token = getMiaUserToken(request)
+  if (!token) {
+    return NextResponse.json({ error: 'Debes iniciar sesión para consultar el Desafío Mundial.' }, { status: 401 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -77,7 +90,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'userId es requerido.' }, { status: 400 })
   }
 
-  const payload = await proxyGraphQL<{ myWorldCupDashboard: unknown }>(GET_DASHBOARD, { userId })
+  const payload = await proxyGraphQL<{ myWorldCupDashboard: unknown }>(GET_DASHBOARD, { userId }, token)
 
   if (!payload.ok) {
     return NextResponse.json({ error: payload.error }, { status: payload.status })
@@ -86,9 +99,14 @@ export async function GET(request: Request) {
   return NextResponse.json({ dashboard: payload.data?.myWorldCupDashboard ?? null })
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
     return NextResponse.json({ error: 'El Desafío Mundial no está habilitado.' }, { status: 403 })
+  }
+
+  const token = getMiaUserToken(request)
+  if (!token) {
+    return NextResponse.json({ error: 'Debes iniciar sesión para modificar el Desafío Mundial.' }, { status: 401 })
   }
 
   const body = await request.json().catch(() => null)
@@ -104,7 +122,7 @@ export async function POST(request: Request) {
     const country = String(body?.country || '')
     const phone = body?.phone ? String(body.phone) : null
     
-    const payload = await proxyGraphQL<{ registerWorldCupChallenge: unknown }>(REGISTER_PARTICIPANT, { userId, displayName, country, phone })
+    const payload = await proxyGraphQL<{ registerWorldCupChallenge: unknown }>(REGISTER_PARTICIPANT, { userId, displayName, country, phone }, token)
     if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
     return NextResponse.json({ participant: payload.data?.registerWorldCupChallenge })
   }
@@ -114,7 +132,7 @@ export async function POST(request: Request) {
     const date = String(body?.date || '')
     const currency = String(body?.currency || 'COP')
 
-    const payload = await proxyGraphQL<{ logWorldCupSaving: unknown }>(LOG_SAVING, { userId, amount, date, currency })
+    const payload = await proxyGraphQL<{ logWorldCupSaving: unknown }>(LOG_SAVING, { userId, amount, date, currency }, token)
     if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
     return NextResponse.json({ saving: payload.data?.logWorldCupSaving })
   }
@@ -122,7 +140,7 @@ export async function POST(request: Request) {
   if (action === 'deleteSaving') {
     const id = String(body?.id || '')
 
-    const payload = await proxyGraphQL<{ deleteWorldCupSaving: boolean }>(DELETE_SAVING, { userId, id })
+    const payload = await proxyGraphQL<{ deleteWorldCupSaving: boolean }>(DELETE_SAVING, { userId, id }, token)
     if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
     return NextResponse.json({ success: payload.data?.deleteWorldCupSaving })
   }
@@ -130,14 +148,17 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: 'Acción no soportada.' }, { status: 400 })
 }
 
-async function proxyGraphQL<T>(query: string, variables: Record<string, unknown>): Promise<
+async function proxyGraphQL<T>(query: string, variables: Record<string, unknown>, token: string): Promise<
   | { ok: true; data: T }
   | { ok: false; status: number; error: string }
 > {
   try {
     const response = await fetch(MIA_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ query, variables }),
       cache: 'no-store',
     })

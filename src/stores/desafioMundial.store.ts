@@ -1,7 +1,6 @@
 'use client'
 
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 
 export const MONTO_MINIMO_DIA = 20_000
 
@@ -48,7 +47,14 @@ interface DesafioMundialActions {
 
 type DesafioMundialStore = DesafioMundialState & DesafioMundialActions
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+function formatDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const todayStr = () => formatDateKey(new Date())
 
 function aportesDelDia(aportes: Aporte[], fecha: string) {
   return aportes.filter((a) => a.fecha === fecha)
@@ -59,100 +65,95 @@ function totalDelDia(aportes: Aporte[], fecha: string) {
 }
 
 export const useDesafioMundialStore = create<DesafioMundialStore>()(
-  persist(
-    (set, get) => ({
-      profile: null,
-      aportes: [],
-      isRegistered: false,
+  (set, get) => ({
+    profile: null,
+    aportes: [],
+    isRegistered: false,
 
-      setDashboardData: (data) => set({
-        profile: data.profile,
-        aportes: data.aportes,
-        isRegistered: data.isRegistered
-      }),
-
-      agregarAporteLocal: (aporte) => {
-        set((s) => ({ aportes: [aporte, ...s.aportes] }))
-      },
-
-      eliminarAporteLocal: (id) =>
-        set((s) => ({ aportes: s.aportes.filter((a) => a.id !== id) })),
-
-      clearAll: () => set({ profile: null, aportes: [], isRegistered: false }),
-
-      getAportesHoy: () => aportesDelDia(get().aportes, todayStr()),
-
-      getTotalHoy: () => totalDelDia(get().aportes, todayStr()),
-
-      getDiaCompletado: (fecha) => totalDelDia(get().aportes, fecha) >= MONTO_MINIMO_DIA,
-
-      getTotalDiasCompletados: () => {
-        const { aportes } = get()
-        const fechas = [...new Set(aportes.map((a) => a.fecha))]
-        return fechas.filter((f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA).length
-      },
-
-      getTotalAcumulado: () =>
-        get().aportes.reduce((s, a) => s + a.monto, 0),
-
-      getDiasLlenosAcumulado: () => {
-        const total = get().aportes.reduce((s, a) => s + a.monto, 0)
-        return Math.floor(total / MONTO_MINIMO_DIA)
-      },
-
-      getDiaFill: (index: number) => {
-        const total = get().aportes.reduce((s, a) => s + a.monto, 0)
-        const inicio = index * MONTO_MINIMO_DIA
-        if (total <= inicio) return 0
-        const restante = total - inicio
-        return Math.min(1, restante / MONTO_MINIMO_DIA)
-      },
-
-      getRacha: () => {
-        const { aportes } = get()
-        if (aportes.length === 0) return 0
-
-        // Filtramos las fechas que efectivamente cumplen con el mínimo diario
-        const fechasCompletadas = new Set(
-          [...new Set(aportes.map((a) => a.fecha))].filter(
-            (f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA
-          )
-        )
-
-        const hoy = todayStr()
-        const ayerObj = new Date(hoy)
-        ayerObj.setDate(ayerObj.getDate() - 1)
-        const ayer = ayerObj.toISOString().slice(0, 10)
-
-        let cursor = hoy
-        // Si hoy no se ha completado pero ayer sí, comenzamos a contar la racha desde ayer
-        if (!fechasCompletadas.has(hoy) && fechasCompletadas.has(ayer)) {
-          cursor = ayer
-        } else if (!fechasCompletadas.has(hoy)) {
-          // Si no completó hoy ni ayer, la racha ya se rompió
-          return 0
-        }
-
-        let racha = 0
-        const dateCursor = new Date(cursor)
-
-        while (true) {
-          const checkFecha = dateCursor.toISOString().slice(0, 10)
-          if (fechasCompletadas.has(checkFecha)) {
-            racha++
-            dateCursor.setDate(dateCursor.getDate() - 1)
-          } else {
-            break
-          }
-        }
-
-        return racha
-      },
+    setDashboardData: (data) => set({
+      profile: data.profile,
+      aportes: data.aportes,
+      isRegistered: data.isRegistered
     }),
-    {
-      name: 'mia-desafio-mundial',
-      storage: createJSONStorage(() => localStorage),
-    }
-  )
-)
 
+    agregarAporteLocal: (aporte) => {
+      set((s) => ({ aportes: [aporte, ...s.aportes] }))
+    },
+
+    eliminarAporteLocal: (id) =>
+      set((s) => ({ aportes: s.aportes.filter((a) => a.id !== id) })),
+
+    clearAll: () => set({ profile: null, aportes: [], isRegistered: false }),
+
+    getAportesHoy: () => aportesDelDia(get().aportes, todayStr()),
+
+    getTotalHoy: () => totalDelDia(get().aportes, todayStr()),
+
+    getDiaCompletado: (fecha) => totalDelDia(get().aportes, fecha) >= MONTO_MINIMO_DIA,
+
+    getTotalDiasCompletados: () => {
+      const { aportes } = get()
+      const fechas = [...new Set(aportes.map((a) => a.fecha))]
+      return fechas.filter((f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA).length
+    },
+
+    getTotalAcumulado: () =>
+      get().aportes.reduce((s, a) => s + a.monto, 0),
+
+    getDiasLlenosAcumulado: () => {
+      const total = get().aportes.reduce((s, a) => s + a.monto, 0)
+      return Math.floor(total / MONTO_MINIMO_DIA)
+    },
+
+    getDiaFill: (index: number) => {
+      const total = get().aportes.reduce((s, a) => s + a.monto, 0)
+      const inicio = index * MONTO_MINIMO_DIA
+      if (total <= inicio) return 0
+      const restante = total - inicio
+      return Math.min(1, restante / MONTO_MINIMO_DIA)
+    },
+
+    getRacha: () => {
+      const { aportes } = get()
+      if (aportes.length === 0) return 0
+
+      // Filtramos las fechas que efectivamente cumplen con el mínimo diario
+      const fechasCompletadas = new Set(
+        [...new Set(aportes.map((a) => a.fecha))].filter(
+          (f) => totalDelDia(aportes, f) >= MONTO_MINIMO_DIA
+        )
+      )
+
+      const hoy = todayStr()
+      const ayerObj = new Date()
+      ayerObj.setHours(0, 0, 0, 0)
+      ayerObj.setDate(ayerObj.getDate() - 1)
+      const ayer = formatDateKey(ayerObj)
+
+      let cursor = hoy
+      // Si hoy no se ha completado pero ayer sí, comenzamos a contar la racha desde ayer
+      if (!fechasCompletadas.has(hoy) && fechasCompletadas.has(ayer)) {
+        cursor = ayer
+      } else if (!fechasCompletadas.has(hoy)) {
+        // Si no completó hoy ni ayer, la racha ya se rompió
+        return 0
+      }
+
+      let racha = 0
+      const [cursorYear, cursorMonth, cursorDay] = cursor.split('-').map(Number)
+      const dateCursor = new Date(cursorYear, cursorMonth - 1, cursorDay)
+
+      while (true) {
+        const checkFecha = formatDateKey(dateCursor)
+        if (fechasCompletadas.has(checkFecha)) {
+          racha++
+          dateCursor.setDate(dateCursor.getDate() - 1)
+        } else {
+          break
+        }
+      }
+
+      return racha
+    },
+  })
+)

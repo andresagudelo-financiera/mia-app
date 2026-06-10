@@ -10,6 +10,8 @@ function diasRestantes(): number {
 }
 
 export default function DesafioMundialBanner() {
+  if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') return null
+
   const dias = diasRestantes()
 
   return (

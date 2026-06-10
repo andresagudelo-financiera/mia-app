@@ -80,6 +80,7 @@ export type UserProfile = {
   lastSeenAt?: string
   hasCompletedOnboarding: boolean
   hasPassword?: boolean
+  authToken?: string
   accesses?: UserAccess[]
 }
 

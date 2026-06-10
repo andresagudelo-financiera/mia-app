@@ -36,7 +36,6 @@ export async function GET() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: PUBLIC_SIMULATORS }),
       cache: 'no-store',
-      next: { revalidate: 0 },
       signal: controller.signal,
     })
 

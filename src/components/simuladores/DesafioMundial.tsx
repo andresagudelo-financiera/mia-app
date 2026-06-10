@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Trophy, Zap, Calendar, TrendingUp, Flame, Plus, CheckCircle2, PiggyBank, Trash2, Clock, Loader2, AlertTriangle, X } from 'lucide-react'
+import { Trophy, Zap, Calendar, TrendingUp, Flame, Plus, CheckCircle2, PiggyBank, Trash2, Clock, Loader2, AlertTriangle, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useDesafioMundialStore, MONTO_MINIMO_DIA } from '@/stores/desafioMundial.store'
 import { desafioMundialApi } from '@/services/api/desafioMundial.api'
 import type { DesafioMundialProfile } from '@/stores/desafioMundial.store'
@@ -44,7 +44,14 @@ function calcularEstado() {
   return { dias: 0, diaDelTorneo: Math.abs(diff) + 1 }
 }
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+function formatDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const todayStr = () => formatDateKey(new Date())
 
 function formatFechaCorta(iso: string) {
   const [, mes, dia] = iso.split('-')
@@ -58,18 +65,6 @@ function formatMonto(monto: number, moneda: string) {
     maximumFractionDigits: 0,
   }).format(monto)
 }
-
-function generarUltimos30Dias(): string[] {
-  const dias: string[] = []
-  const cursor = new Date()
-  cursor.setHours(0, 0, 0, 0)
-  for (let i = 0; i < 30; i++) {
-    dias.push(cursor.toISOString().slice(0, 10))
-    cursor.setDate(cursor.getDate() - 1)
-  }
-  return dias.reverse()
-}
-
 interface ErrorModalProps {
   message: string
   onClose: () => void
@@ -117,13 +112,18 @@ export default function DesafioMundial() {
   const { isRegistered: isUserRegistered, profile: userProfile } = useUserStore()
   const { isRegistered: isChallengeRegistered, profile: challengeProfile, setDashboardData } = useDesafioMundialStore()
   const [cargandoDb, setCargandoDb] = useState(false)
+  const [dashboardChecked, setDashboardChecked] = useState(false)
   const [errorModalMessage, setErrorModalMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!userProfile?.id) return
+    if (!userProfile?.id) {
+      setDashboardChecked(false)
+      return
+    }
     let active = true
+    setDashboardChecked(false)
     setCargandoDb(true)
-    desafioMundialApi.getDashboard(userProfile.id)
+    desafioMundialApi.getDashboard(userProfile.id, userProfile.authToken)
       .then((data) => {
         if (!active || !data) return
         if (data.isRegistered && data.participant) {
@@ -147,17 +147,26 @@ export default function DesafioMundial() {
               registradoEn: data.participant.createdAt
             }
           })
+        } else {
+          setDashboardData({
+            isRegistered: false,
+            aportes: [],
+            profile: null,
+          })
         }
       })
       .catch(() => null)
       .finally(() => {
-        if (active) setCargandoDb(false)
+        if (active) {
+          setDashboardChecked(true)
+          setCargandoDb(false)
+        }
       })
 
     return () => {
       active = false
     }
-  }, [userProfile?.id, setDashboardData, userProfile?.email])
+  }, [userProfile?.id, userProfile?.authToken, setDashboardData, userProfile?.email])
 
   if (process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE !== 'true') {
     return (
@@ -175,7 +184,7 @@ export default function DesafioMundial() {
     return <UserRegistrationModal toolName="desafio-mundial" contentName="desafio_mundial" onClose={() => undefined} />
   }
 
-  if (cargandoDb) {
+  if (cargandoDb || (isUserRegistered && userProfile?.id && !dashboardChecked)) {
     return (
       <main className="min-h-screen bg-mia-black flex items-center justify-center text-mia-cream">
         <div className="text-center space-y-3">
@@ -199,7 +208,7 @@ export default function DesafioMundial() {
               country: data.pais,
               phone: data.telefono,
               email: userProfile.email || '',
-            })
+            }, userProfile.authToken)
             if (participant) {
               const p = PAISES.find((pa) => pa.codigo === participant.country)
               setDashboardData({
@@ -387,8 +396,9 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
   const { profile: userProfile } = useUserStore()
   const {
     profile, aportes, agregarAporteLocal, eliminarAporteLocal,
+    setDashboardData,
     getAportesHoy, getTotalHoy,
-    getRacha, getTotalAcumulado, getDiasLlenosAcumulado, getDiaFill,
+    getRacha, getTotalAcumulado, getTotalDiasCompletados,
   } = useDesafioMundialStore()
 
   const [monto, setMonto] = useState('')
@@ -396,26 +406,120 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
   const [error, setError] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [mensajeOk, setMensajeOk] = useState('')
+  const [quickLoading, setQuickLoading] = useState<string | null>(null)
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const month = new Date()
+    month.setDate(1)
+    month.setHours(0, 0, 0, 0)
+    return month
+  })
 
   const { dias, diaDelTorneo } = calcularEstado()
   const aportesHoy = getAportesHoy()
   const totalHoy = getTotalHoy()
   const totalAcumulado = getTotalAcumulado()
-  const diasLlenos = getDiasLlenosAcumulado()
-
-  // El progreso de "hoy" es el llenado del día virtual actual (el que está a medio llenar)
-  const fillDiaActual = getDiaFill(diasLlenos)
-  const progresoPct = Math.round(fillDiaActual * 100)
-  const montoEnDiaActual = fillDiaActual * MONTO_MINIMO_DIA
-  const faltanParaCompletarDia = MONTO_MINIMO_DIA - montoEnDiaActual
-
-  // Mostrar estado de hoy basado en si ya hay aportes hoy
+  const diasCompletados = getTotalDiasCompletados()
+  const progresoPct = Math.min(100, Math.round((totalHoy / MONTO_MINIMO_DIA) * 100))
+  const faltanParaCompletarHoy = Math.max(0, MONTO_MINIMO_DIA - totalHoy)
   const diaCompletadoHoy = totalHoy >= MONTO_MINIMO_DIA
   const racha = getRacha()
+  const monedaDisplay = aportesHoy[0]?.moneda ?? aportes[0]?.moneda ?? moneda
 
-  // Grid: 30 días virtuales (banco acumulado)
-  const GRID_DIAS = 30
-  const monedaDisplay = aportesHoy[0]?.moneda ?? moneda
+  const sortedAportes = useMemo(
+    () => [...aportes].sort((a, b) => b.timestamp - a.timestamp),
+    [aportes]
+  )
+
+  const aportesPorFecha = useMemo(() => {
+    const map = new Map<string, typeof aportes>()
+    for (const aporte of aportes) {
+      const current = map.get(aporte.fecha) ?? []
+      current.push(aporte)
+      map.set(aporte.fecha, current)
+    }
+    for (const [fecha, items] of map.entries()) {
+      map.set(fecha, [...items].sort((a, b) => b.timestamp - a.timestamp))
+    }
+    return map
+  }, [aportes])
+
+  const calendarCells = useMemo(() => {
+    const year = calendarMonth.getFullYear()
+    const month = calendarMonth.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const leadingEmptyCells = (firstDay.getDay() + 6) % 7
+    const today = todayStr()
+    const cells: Array<{
+      key: string
+      day: number | null
+      fecha: string | null
+      total: number
+      completed: boolean
+      isToday: boolean
+      isFuture: boolean
+      aportesCount: number
+    }> = []
+
+    for (let i = 0; i < leadingEmptyCells; i++) {
+      cells.push({
+        key: `empty-${i}`,
+        day: null,
+        fecha: null,
+        total: 0,
+        completed: false,
+        isToday: false,
+        isFuture: false,
+        aportesCount: 0,
+      })
+    }
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day)
+      const fecha = formatDateKey(date)
+      const aportesDia = aportesPorFecha.get(fecha) ?? []
+      const total = aportesDia.reduce((sum, aporte) => sum + aporte.monto, 0)
+      cells.push({
+        key: fecha,
+        day,
+        fecha,
+        total,
+        completed: total >= MONTO_MINIMO_DIA,
+        isToday: fecha === today,
+        isFuture: fecha > today,
+        aportesCount: aportesDia.length,
+      })
+    }
+
+    return cells
+  }, [calendarMonth, aportesPorFecha])
+
+  const monthLabel = useMemo(
+    () => new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(calendarMonth),
+    [calendarMonth]
+  )
+  const selectedMonthPrefix = useMemo(
+    () => `${calendarMonth.getFullYear()}-${String(calendarMonth.getMonth() + 1).padStart(2, '0')}`,
+    [calendarMonth]
+  )
+  const aportesDelMes = useMemo(
+    () => sortedAportes.filter((aporte) => aporte.fecha.startsWith(selectedMonthPrefix)),
+    [sortedAportes, selectedMonthPrefix]
+  )
+
+  const monthCompletedDays = calendarCells.filter((cell) => cell.completed).length
+  const monthDaysWithSavings = calendarCells.filter((cell) => cell.total > 0).length
+  const weekDays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+
+  function cambiarMes(delta: number) {
+    setCalendarMonth((current) => {
+      const next = new Date(current)
+      next.setMonth(next.getMonth() + delta)
+      next.setDate(1)
+      next.setHours(0, 0, 0, 0)
+      return next
+    })
+  }
 
   async function handleAgregar(e: React.FormEvent) {
     e.preventDefault()
@@ -435,7 +539,7 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
       currency: moneda,
       email: profile.email,
       nombre: profile.nombre
-    })
+    }, userProfile.authToken)
 
     if (savedSaving) {
       agregarAporteLocal({
@@ -454,14 +558,20 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
       }
       setTimeout(() => setMensajeOk(''), 5000)
     } else {
-      setError('No se pudo registrar el aporte en la base de datos.')
+      const dashboard = await desafioMundialApi.getDashboard(userProfile.id, userProfile.authToken)
+      if (dashboard && !dashboard.isRegistered) {
+        setDashboardData({ isRegistered: false, aportes: [], profile: null })
+        onError('Primero debes registrarte en el reto. Te llevaremos al formulario de inscripción.')
+      } else {
+        setError('No se pudo registrar el aporte en la base de datos.')
+      }
     }
     setGuardando(false)
   }
 
   async function handleEliminar(id: string) {
     if (!userProfile?.id) return
-    const success = await desafioMundialApi.deleteSaving(userProfile.id, id)
+    const success = await desafioMundialApi.deleteSaving(userProfile.id, id, userProfile.authToken)
     if (success) {
       eliminarAporteLocal(id)
     } else {
@@ -469,52 +579,58 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
     }
   }
 
-  // Estado de loading por celda del grid
-  const [quickLoading, setQuickLoading] = useState<number | null>(null)
+  async function handleClickFecha(fecha: string, totalDia: number) {
+    if (quickLoading !== null) return
+    if (fecha > todayStr()) {
+      setError('No puedes registrar aportes futuros. Usa el calendario para revisar o completar días pasados y el día de hoy.')
+      return
+    }
+    if (!userProfile?.id || !profile) return
 
-  async function handleClickDia(i: number) {
-    if (quickLoading !== null) return          // evita doble click
-    const fill = getDiaFill(i)
+    setError('')
+    setQuickLoading(fecha)
 
-    if (fill >= 1) {
-      // Día completo → desmarcar eliminando el aporte más reciente
-      const ultimo = aportes[0]               // store los mantiene en orden desc
-      if (!ultimo) return
-      setQuickLoading(i)
-      await handleEliminar(ultimo.id)
-      setQuickLoading(null)
-    } else {
-      // Día parcial o siguiente slot vacío → agregar $20k al banco
-      if (!userProfile?.id || !profile) return
-      setQuickLoading(i)
-      const savedSaving = await desafioMundialApi.logSaving(userProfile.id, {
-        amount: MONTO_MINIMO_DIA,
-        date: todayStr(),
-        currency: moneda,
-        email: profile.email,
-        nombre: profile.nombre,
-      })
-      if (savedSaving) {
-        agregarAporteLocal({
-          id: savedSaving.id,
-          fecha: savedSaving.date,
-          monto: savedSaving.amount,
-          moneda: savedSaving.currency,
-          timestamp: new Date(savedSaving.createdAt).getTime(),
-        })
-        const nuevoTotal = totalAcumulado + MONTO_MINIMO_DIA
-        const nuevosDias = Math.floor(nuevoTotal / MONTO_MINIMO_DIA)
-        setMensajeOk(
-          nuevosDias > diasLlenos
-            ? `¡Día ${nuevosDias} completado! ✅ +$20k al banco`
-            : `¡+$20k al banco! Día ${i + 1} en progreso ⚡`
-        )
+    if (totalDia >= MONTO_MINIMO_DIA) {
+      const aporteParaEliminar = aportesPorFecha.get(fecha)?.[0]
+      if (aporteParaEliminar) {
+        await handleEliminar(aporteParaEliminar.id)
+        setMensajeOk(`Quitamos el último aporte de ${formatFechaCorta(fecha)}.`)
         setTimeout(() => setMensajeOk(''), 4000)
+      }
+      setQuickLoading(null)
+      return
+    }
+
+    const montoParaCompletar = Math.max(MONTO_MINIMO_DIA - totalDia, 1)
+    const savedSaving = await desafioMundialApi.logSaving(userProfile.id, {
+      amount: montoParaCompletar,
+      date: fecha,
+      currency: moneda,
+      email: profile.email,
+      nombre: profile.nombre,
+    }, userProfile.authToken)
+
+    if (savedSaving) {
+      agregarAporteLocal({
+        id: savedSaving.id,
+        fecha: savedSaving.date,
+        monto: savedSaving.amount,
+        moneda: savedSaving.currency,
+        timestamp: new Date(savedSaving.createdAt).getTime(),
+      })
+      setMensajeOk(`Día ${formatFechaCorta(fecha)} completado con ${formatMonto(montoParaCompletar, moneda)}. ✅`)
+      setTimeout(() => setMensajeOk(''), 4000)
+    } else {
+      const dashboard = await desafioMundialApi.getDashboard(userProfile.id, userProfile.authToken)
+      if (dashboard && !dashboard.isRegistered) {
+        setDashboardData({ isRegistered: false, aportes: [], profile: null })
+        onError('Primero debes registrarte en el reto. Te llevaremos al formulario de inscripción.')
       } else {
         onError('No se pudo registrar el aporte rápido.')
       }
-      setQuickLoading(null)
     }
+
+    setQuickLoading(null)
   }
 
   return (
@@ -539,13 +655,12 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
             </p>
           </div>
 
-          {/* Barra de progreso del banco acumulado */}
           <div className="mt-8 max-w-2xl">
-            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-neutral">
-              <span>Progreso acumulado</span>
+            <div className="mb-2 flex items-center justify-between gap-4 text-sm font-semibold text-neutral">
+              <span>Progreso de hoy</span>
               <span>
-                {progresoPct}% del día {diasLlenos + 1}
-                {diasLlenos > 0 ? ` · ${diasLlenos} ${diasLlenos === 1 ? 'día completo' : 'días completos'}` : ''}
+                {progresoPct}% del mínimo diario
+                {diasCompletados > 0 ? ` · ${diasCompletados} ${diasCompletados === 1 ? 'día completo' : 'días completos'}` : ''}
               </span>
             </div>
             <div className="h-4 overflow-hidden rounded-full bg-mia-black/60">
@@ -555,9 +670,9 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
               />
             </div>
             <p className="mt-1.5 text-xs text-neutral">
-              {faltanParaCompletarDia > 0
-                ? `Faltan ${formatMonto(faltanParaCompletarDia, monedaDisplay)} para completar el día ${diasLlenos + 1}`
-                : `¡Día ${diasLlenos} completado! Sigue sumando ⚽`}
+              {faltanParaCompletarHoy > 0
+                ? `Faltan ${formatMonto(faltanParaCompletarHoy, monedaDisplay)} para completar hoy.`
+                : '¡Hoy ya está completo! Sigue sumando si quieres. ⚽'}
             </p>
           </div>
         </section>
@@ -583,9 +698,9 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
 
           <div className="rounded-2xl border border-mia-border bg-mia-card p-5">
             <Calendar className="h-5 w-5 text-mf-coral mb-3" />
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral mb-2">Días completos</p>
-            <p className="font-heading text-3xl font-bold text-mia-cream">{diasLlenos}</p>
-            <p className="mt-1 text-xs text-neutral">calculados sobre el total</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral mb-2">Días completados</p>
+            <p className="font-heading text-3xl font-bold text-mia-cream">{diasCompletados}</p>
+            <p className="mt-1 text-xs text-neutral">fechas con mínimo diario</p>
           </div>
 
           <div className="rounded-2xl border border-mia-border bg-mia-card p-5">
@@ -608,9 +723,9 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
 
           <div className="rounded-2xl border border-mia-border bg-mia-card p-5">
             <CheckCircle2 className="h-5 w-5 text-mf-coral mb-3" />
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral mb-2">Días completos</p>
-            <p className="font-heading text-3xl font-bold text-mia-cream">{diasLlenos}/{GRID_DIAS}</p>
-            <p className="mt-1 text-xs text-neutral">del banco acumulado</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-neutral mb-2">Meta de hoy</p>
+            <p className="font-heading text-3xl font-bold text-mia-cream">{diaCompletadoHoy ? 'Completa' : `${progresoPct}%`}</p>
+            <p className="mt-1 text-xs text-neutral">mínimo de {formatMonto(MONTO_MINIMO_DIA, monedaDisplay)}</p>
           </div>
         </section>
 
@@ -684,123 +799,124 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
           )}
         </section>
 
-        {aportes.length > 0 && (
-          <section className="rounded-2xl border border-mia-border bg-mia-card p-6">
-            <h2 className="text-lg font-bold text-mia-cream mb-4">Historial de aportes</h2>
-
-            <div className="max-h-80 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr>
-                    <th className="pb-3 text-left text-xs font-bold uppercase tracking-[0.2em] text-neutral">Fecha</th>
-                    <th className="pb-3 text-right text-xs font-bold uppercase tracking-[0.2em] text-neutral">Monto</th>
-                    <th className="pb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-neutral">Moneda</th>
-                    <th className="w-10 pb-3" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {aportes.slice(0, 30).map((a) => (
-                    <tr key={a.id} className="border-t border-mia-border">
-                      <td className="py-3 text-mia-cream">{a.fecha}</td>
-                      <td className="py-3 text-right font-bold text-gain">{formatMonto(a.monto, a.moneda)}</td>
-                      <td className="py-3 text-center text-neutral">{a.moneda}</td>
-                      <td className="py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleEliminar(a.id)}
-                          className="text-neutral/40 transition hover:text-loss"
-                          aria-label="Eliminar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {aportes.length > 30 && (
-              <p className="mt-3 text-center text-xs text-neutral">Mostrando los últimos 30 aportes.</p>
-            )}
-          </section>
-        )}
-
         <section className="rounded-2xl border border-mia-border bg-mia-card p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-mia-cream">Progreso del reto</h2>
-            <span className="text-xs font-bold uppercase tracking-[0.2em] text-neutral">{diasLlenos} / {GRID_DIAS} días</span>
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-mia-cream">Calendario del reto</h2>
+              <p className="mt-1 text-xs text-neutral">
+                Navega por mes para ver qué días llenaste. Clic en un día pendiente lo completa hasta {formatMonto(MONTO_MINIMO_DIA, monedaDisplay)}.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => cambiarMes(-1)}
+                className="rounded-xl border border-mia-border bg-mia-black/40 p-2 text-neutral transition hover:border-mf-coral/50 hover:text-mia-cream"
+                aria-label="Mes anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="min-w-44 rounded-xl border border-mia-border bg-mia-black/40 px-4 py-2 text-center text-sm font-bold capitalize text-mia-cream">
+                {monthLabel}
+              </div>
+              <button
+                type="button"
+                onClick={() => cambiarMes(1)}
+                className="rounded-xl border border-mia-border bg-mia-black/40 p-2 text-neutral transition hover:border-mf-coral/50 hover:text-mia-cream"
+                aria-label="Mes siguiente"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
-          {/* Grid de 30 días virtuales con llenado acumulado */}
-          <div className="grid grid-cols-6 gap-2 sm:grid-cols-10">
-            {Array.from({ length: GRID_DIAS }, (_, i) => {
-              const fill = getDiaFill(i)         // 0..1
-              const lleno = fill >= 1
-              const parcial = fill > 0 && fill < 1
-              const esDiaActual = i === diasLlenos && fill > 0
-              const esClickeable = lleno || parcial || i === diasLlenos
-              const cargando = quickLoading === i
+          <div className="mb-4 grid grid-cols-2 gap-3 text-xs text-neutral sm:grid-cols-3">
+            <div className="rounded-xl border border-mia-border bg-mia-black/30 px-3 py-2">
+              <span className="font-bold text-mia-cream">{monthCompletedDays}</span> días completos este mes
+            </div>
+            <div className="rounded-xl border border-mia-border bg-mia-black/30 px-3 py-2">
+              <span className="font-bold text-mia-cream">{monthDaysWithSavings}</span> días con aportes
+            </div>
+            <div className="rounded-xl border border-mia-border bg-mia-black/30 px-3 py-2 sm:col-span-1 col-span-2">
+              <span className="font-bold text-mia-cream">{diasCompletados}</span> completados en total
+            </div>
+          </div>
+
+          <div className="grid grid-cols-7 gap-2 text-center">
+            {weekDays.map((day) => (
+              <div key={day} className="pb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-neutral/70">
+                {day}
+              </div>
+            ))}
+
+            {calendarCells.map((cell) => {
+              if (!cell.fecha || cell.day === null) {
+                return <div key={cell.key} className="aspect-square rounded-xl border border-transparent" />
+              }
+
+              const fill = Math.min(100, Math.round((cell.total / MONTO_MINIMO_DIA) * 100))
+              const partial = cell.total > 0 && !cell.completed
+              const loading = quickLoading === cell.fecha
+              const clickable = !cell.isFuture
+
               return (
-                <div
-                  key={i}
-                  onClick={() => esClickeable && handleClickDia(i)}
+                <button
+                  key={cell.key}
+                  type="button"
+                  onClick={() => clickable && handleClickFecha(cell.fecha!, cell.total)}
+                  disabled={!clickable || loading}
                   title={
-                    lleno
-                      ? `Día ${i + 1}: ✅ completado — clic para desmarcar`
-                      : parcial
-                        ? `Día ${i + 1}: ${Math.round(fill * 100)}% — clic para agregar $20k`
-                        : i <= diasLlenos
-                          ? `Día ${i + 1}: clic para agregar $20k`
-                          : `Día ${i + 1}: pendiente`
+                    cell.completed
+                      ? `${cell.fecha}: completo — clic para quitar el último aporte de ese día`
+                      : partial
+                        ? `${cell.fecha}: ${fill}% — clic para completar el mínimo diario`
+                        : cell.isFuture
+                          ? `${cell.fecha}: futuro`
+                          : `${cell.fecha}: pendiente — clic para completar el mínimo diario`
                   }
                   className={[
-                    'relative flex aspect-square flex-col items-center justify-end overflow-hidden rounded-xl border text-xs font-bold transition-all duration-200',
-                    esClickeable ? 'cursor-pointer' : 'cursor-default',
-                    lleno
-                      ? 'border-gain/40 bg-mia-black/30 hover:border-loss/50 hover:bg-loss/10'
-                      : esDiaActual
-                        ? 'border-mf-coral/60 bg-mia-black/30 hover:border-mf-coral hover:bg-mf-coral/10'
-                        : esClickeable
-                          ? 'border-mia-border/60 bg-mia-black/30 hover:border-mf-coral/40 hover:bg-mf-coral/5'
-                          : 'border-mia-border bg-mia-black/30',
+                    'relative flex aspect-square flex-col items-center justify-center overflow-hidden rounded-xl border text-xs font-bold transition-all duration-200 disabled:cursor-not-allowed',
+                    cell.completed
+                      ? 'border-gain/40 bg-gain/10 text-gain hover:border-loss/50 hover:bg-loss/10'
+                      : partial
+                        ? 'border-mf-coral/60 bg-mf-coral/10 text-mf-coral hover:bg-mf-coral/20'
+                        : cell.isToday
+                          ? 'border-mf-coral/50 bg-mia-black/40 text-mia-cream hover:bg-mf-coral/10'
+                          : cell.isFuture
+                            ? 'border-mia-border/40 bg-mia-black/20 text-neutral/30'
+                            : 'border-mia-border bg-mia-black/30 text-neutral hover:border-mf-coral/40 hover:bg-mf-coral/5',
                   ].join(' ')}
                 >
-                  {/* Barra de llenado vertical */}
-                  {fill > 0 && !cargando && (
+                  {partial && !loading && (
                     <div
-                      className={[
-                        'absolute bottom-0 left-0 w-full rounded-b-xl transition-all duration-700',
-                        lleno ? 'bg-gain/25' : 'bg-mf-coral/20',
-                      ].join(' ')}
-                      style={{ height: `${Math.round(fill * 100)}%` }}
+                      className="absolute bottom-0 left-0 w-full rounded-b-xl bg-mf-coral/20 transition-all duration-500"
+                      style={{ height: `${fill}%` }}
                     />
                   )}
-
-                  {/* Contenido */}
-                  <div className="relative z-10 flex flex-col items-center justify-center w-full h-full">
-                    {cargando ? (
-                      <svg className="h-4 w-4 animate-spin text-mf-coral" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                    ) : lleno ? (
-                      <CheckCircle2 className="h-5 w-5 text-gain" />
-                    ) : parcial ? (
-                      <span className={['text-[9px] font-bold', esDiaActual ? 'text-mf-coral' : 'text-neutral'].join(' ')}>
-                        {Math.round(fill * 100)}%
-                      </span>
+                  <span className="relative z-10 text-[11px]">{cell.day}</span>
+                  <span className="relative z-10 mt-1 flex h-5 items-center justify-center text-[10px]">
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-mf-coral" />
+                    ) : cell.completed ? (
+                      <CheckCircle2 className="h-4 w-4 text-gain" />
+                    ) : partial ? (
+                      `${fill}%`
+                    ) : cell.isToday ? (
+                      'Hoy'
+                    ) : cell.total > 0 ? (
+                      cell.aportesCount
                     ) : (
-                      <span className="text-[9px] text-neutral/40">{i + 1}</span>
+                      '·'
                     )}
-                  </div>
-                </div>
+                  </span>
+                </button>
               )
             })}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-neutral">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="h-3.5 w-3.5 text-gain" /> Completado ($20k)
+              <CheckCircle2 className="h-3.5 w-3.5 text-gain" /> Día completado
             </span>
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-3.5 w-3.5 rounded-sm border border-mf-coral/60 bg-mf-coral/20" /> En progreso
@@ -811,7 +927,58 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
           </div>
         </section>
 
+        <section className="rounded-2xl border border-mia-border bg-mia-card p-6">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <h2 className="text-lg font-bold text-mia-cream">Historial de aportes</h2>
+            <p className="text-xs font-semibold capitalize text-neutral">Filtrado por {monthLabel}</p>
+          </div>
+
+          {aportesDelMes.length > 0 ? (
+            <>
+              <div className="max-h-80 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="pb-3 text-left text-xs font-bold uppercase tracking-[0.2em] text-neutral">Fecha</th>
+                      <th className="pb-3 text-right text-xs font-bold uppercase tracking-[0.2em] text-neutral">Monto</th>
+                      <th className="pb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-neutral">Moneda</th>
+                      <th className="w-10 pb-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aportesDelMes.slice(0, 30).map((a) => (
+                      <tr key={a.id} className="border-t border-mia-border">
+                        <td className="py-3 text-mia-cream">{a.fecha}</td>
+                        <td className="py-3 text-right font-bold text-gain">{formatMonto(a.monto, a.moneda)}</td>
+                        <td className="py-3 text-center text-neutral">{a.moneda}</td>
+                        <td className="py-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleEliminar(a.id)}
+                            className="text-neutral/40 transition hover:text-loss"
+                            aria-label="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {aportesDelMes.length > 30 && (
+                <p className="mt-3 text-center text-xs text-neutral">Mostrando los últimos 30 aportes de este mes.</p>
+              )}
+            </>
+          ) : (
+            <p className="rounded-xl border border-mia-border bg-mia-black/30 px-4 py-4 text-sm text-neutral">
+              No hay aportes registrados en {monthLabel}. Usa las flechas del calendario para revisar otros meses.
+            </p>
+          )}
+        </section>
+
       </div>
     </main>
   )
 }
+

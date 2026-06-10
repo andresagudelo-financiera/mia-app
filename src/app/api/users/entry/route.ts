@@ -32,6 +32,7 @@ const FREE_ENTRY_TOOLS = new Set([
   'analiza-tu-deuda',
   'perfil-riesgo',
   'numero-dorado',
+  'desafio-mundial',
 ])
 
 type AccessSummary = {

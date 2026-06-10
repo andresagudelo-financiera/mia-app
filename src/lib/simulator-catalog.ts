@@ -58,15 +58,9 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
     status: 'active',
     accessType: 'free',
   },
-  {
-    id: 'desafio-mundial',
-    slug: 'desafio-mundial',
-    name: 'Desafío Mundial 2030',
-    description: 'Tracker de ahorro diario con cuotas. Marca cada día, acumula tu racha y llega al FIFA World Cup 2030 con el hábito construido.',
-    status: process.env.NEXT_PUBLIC_ENABLE_WORLD_CUP_CHALLENGE === 'true' ? 'active' : 'hidden',
-    accessType: 'free',
-  },
 ]
+
+const CHALLENGE_SLUGS = new Set(['desafio-mundial'])
 
 export function mergeSimulatorCatalog(
   simulators: Simulator[],
@@ -83,6 +77,5 @@ export function mergeSimulatorCatalog(
   }
 
   // Filtrar simuladores que estén inactivos debido a flags de feature
-  return merged.filter(simulator => simulator.status === 'active')
+  return merged.filter(simulator => simulator.status === 'active' && !CHALLENGE_SLUGS.has(simulator.slug))
 }
-
