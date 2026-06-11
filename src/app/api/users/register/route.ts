@@ -33,6 +33,26 @@ function toPlainText(value: unknown, fallback = '') {
   return fallback
 }
 
+function getGraphQLErrorMessage(payload: any, fallback: string) {
+  const error = payload?.errors?.[0]
+  const originalMessage = error?.extensions?.originalError?.message
+
+  if (Array.isArray(originalMessage)) {
+    const firstMessage = originalMessage.find(Boolean)
+    if (firstMessage) return String(firstMessage)
+  }
+
+  if (typeof originalMessage === 'string' && originalMessage.trim()) {
+    return originalMessage.trim()
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.trim()
+  }
+
+  return fallback
+}
+
 type GhlUtmInput = {
   utmSource?: unknown
   utmMedium?: unknown
@@ -182,9 +202,10 @@ export async function POST(request: Request) {
     const payload = await response.json().catch(() => null)
 
     if (!response.ok || payload?.errors?.length) {
+      const message = getGraphQLErrorMessage(payload, 'No se pudo crear la cuenta.')
       return NextResponse.json(
-        { user: null, error: payload?.errors?.[0]?.message || 'No se pudo crear la cuenta.' },
-        { status: response.ok ? 502 : response.status },
+        { user: null, error: message },
+        { status: response.ok ? 400 : response.status },
       )
     }
 

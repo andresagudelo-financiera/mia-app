@@ -137,6 +137,8 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
   const [isValidatingEmail, setIsValidatingEmail] = useState(false)
   const [isNewUser, setIsNewUser] = useState(false)
   const [selectedCountryCode, setSelectedCountryCode] = useState('CO')
+  const [isRequestingPasswordReset, setIsRequestingPasswordReset] = useState(false)
+  const [passwordResetSent, setPasswordResetSent] = useState(false)
 
   const selectedCountry =
     COUNTRY_DIAL_CODES.find(country => country.code === selectedCountryCode) || COUNTRY_DIAL_CODES[0]
@@ -154,9 +156,26 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
     defaultValues: { baseCurrency: 'COP', phone: '' },
   })
 
+  const requestPasswordReset = async () => {
+    const email = watch('email')
+    try {
+      setError(null)
+      setPasswordResetSent(false)
+      setIsRequestingPasswordReset(true)
+      await userApi.requestPasswordReset(email)
+      setPasswordResetSent(true)
+      pushEvent('password_reset_requested', { toolName })
+    } catch (error) {
+      setError((error as Error).message || 'No pudimos enviar el correo de restablecimiento.')
+    } finally {
+      setIsRequestingPasswordReset(false)
+    }
+  }
+
   const onSubmit = async (data: FormData) => {
     try {
       setError(null)
+      setPasswordResetSent(false)
       
       if (step === 'email') {
         setIsValidatingEmail(true)
@@ -297,6 +316,13 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
         (err as any)?.response?.errors?.[0]?.message ||
         (err as Error)?.message ||
         'Hubo un problema al conectar con el servidor. Inténtalo de nuevo.'
+      const normalizedMessage = message.toLowerCase()
+      if (normalizedMessage.includes('correo') || normalizedMessage.includes('email')) {
+        setFieldError('email', { message })
+      }
+      if (normalizedMessage.includes('celular') || normalizedMessage.includes('teléfono') || normalizedMessage.includes('telefono')) {
+        setFieldError('phone', { message })
+      }
       setError(message)
     }
   }
@@ -426,16 +452,35 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
                       </div>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setError(null)
-                        setStep('email')
-                      }}
-                      className="text-xs font-semibold text-mf-coral hover:text-mf-orange"
-                    >
-                      Usar otro correo
-                    </button>
+                    {passwordResetSent && (
+                      <div className="p-3 bg-gain/10 border border-gain/20 rounded-xl">
+                        <p className="text-gain text-xs">
+                          Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError(null)
+                          setPasswordResetSent(false)
+                          setStep('email')
+                        }}
+                        className="text-xs font-semibold text-mf-coral hover:text-mf-orange"
+                      >
+                        Usar otro correo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={requestPasswordReset}
+                        disabled={isRequestingPasswordReset}
+                        className="text-xs font-semibold text-neutral hover:text-mia-cream disabled:opacity-50"
+                      >
+                        {isRequestingPasswordReset ? 'Enviando enlace...' : 'Olvidé mi contraseña'}
+                      </button>
+                    </div>
                   </>
                 ) : step === 'setupPassword' ? (
                   <>

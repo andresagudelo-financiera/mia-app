@@ -113,6 +113,7 @@ export type AnalyticsEvent =
   | 'user_registered'
   | 'user_password_created'
   | 'user_login'
+  | 'password_reset_requested'
   | 'trm_manual_override'
 
 // Computed flow fields (derived, not stored)
