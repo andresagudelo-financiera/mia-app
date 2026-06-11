@@ -65,6 +65,23 @@ function formatMonto(monto: number, moneda: string) {
     maximumFractionDigits: 0,
   }).format(monto)
 }
+
+function splitPhoneByCountry(phone?: string | null) {
+  const digits = String(phone || '').replace(/\D/g, '')
+  if (!digits) return { countryCode: 'CO', nationalNumber: '' }
+
+  const country = [...PAISES]
+    .sort((a, b) => b.dialCode.replace(/\D/g, '').length - a.dialCode.replace(/\D/g, '').length)
+    .find((pais) => digits.startsWith(pais.dialCode.replace(/\D/g, '')))
+
+  if (!country) return { countryCode: 'CO', nationalNumber: digits }
+
+  return {
+    countryCode: country.codigo,
+    nationalNumber: digits.slice(country.dialCode.replace(/\D/g, '').length),
+  }
+}
+
 interface ErrorModalProps {
   message: string
   onClose: () => void
@@ -189,6 +206,7 @@ export default function DesafioMundial() {
         <RegistroForm
           defaultNombre={userProfile?.name || ''}
           defaultEmail={userProfile?.email || ''}
+          defaultTelefono={userProfile?.phone || ''}
           onRegister={async (data) => {
             setCargandoDb(true)
             const participant = await desafioMundialApi.registerParticipant(userProfile.id, {
@@ -234,16 +252,19 @@ export default function DesafioMundial() {
 function RegistroForm({
   defaultNombre,
   defaultEmail,
+  defaultTelefono,
   onRegister,
 }: {
   defaultNombre: string
   defaultEmail: string
+  defaultTelefono: string
   onRegister: (data: { nombre: string; pais: string; telefono: string }) => void
 }) {
-  const [nombre, setNombre] = useState(defaultNombre)
+  const defaultPhone = splitPhoneByCountry(defaultTelefono)
+  const [nombre] = useState(defaultNombre)
   const [email] = useState(defaultEmail)
-  const [telefono, setTelefono] = useState('')
-  const [telefonoPais, setTelefonoPais] = useState('CO')
+  const telefono = defaultPhone.nationalNumber
+  const telefonoPais = defaultPhone.countryCode
   const [paisCodigo, setPaisCodigo] = useState('CO')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -255,7 +276,7 @@ function RegistroForm({
     e.preventDefault()
     const digitos = telefono.replace(/\D/g, '')
     if (!nombre.trim() || !digitos || !paisCodigo) {
-      setError('Completa todos los campos.')
+      setError('Tu perfil no tiene nombre o teléfono. Actualiza tus datos antes de unirte al reto.')
       return
     }
     setLoading(true)
@@ -287,27 +308,34 @@ function RegistroForm({
           </div>
 
           <div className="mt-8 grid gap-4">
-            {/* Nombre + Email */}
+            {/* Datos de perfil MIA */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1 block text-sm font-semibold text-mia-cream">Nombre completo</label>
-                <input
-                  type="text"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  placeholder="Tu nombre"
-                  className="w-full rounded-xl border border-mia-border bg-mia-black px-4 py-3 text-mia-cream placeholder:text-neutral focus:border-mf-coral focus:outline-none transition-colors"
-                />
+                <div className="w-full rounded-xl border border-mia-border bg-mia-black/50 px-4 py-3 text-mia-cream">
+                  {nombre || 'Nombre no disponible'}
+                </div>
               </div>
               <div>
                 <label className="mb-1 block text-sm font-semibold text-mia-cream">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  disabled
-                  className="w-full rounded-xl border border-mia-border bg-mia-black/50 px-4 py-3 text-neutral cursor-not-allowed"
-                />
+                <div className="w-full rounded-xl border border-mia-border bg-mia-black/50 px-4 py-3 text-neutral">
+                  {email || 'Email no disponible'}
+                </div>
               </div>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold text-mia-cream">
+                Teléfono
+              </label>
+              <div className="w-full rounded-xl border border-mia-border bg-mia-black/50 px-4 py-3 text-mia-cream">
+                {telefono
+                  ? `${telefonoPaisData.bandera} ${telefonoPaisData.dialCode} ${telefono}`
+                  : 'Teléfono no disponible'}
+              </div>
+              <p className="mt-1.5 text-[11px] text-neutral/50">
+                Usaremos el teléfono guardado en tu perfil MIA para esta inscripción.
+              </p>
             </div>
 
             {/* País del Mundial */}
@@ -324,42 +352,6 @@ function RegistroForm({
                   <option key={p.codigo} value={p.codigo}>{p.bandera} {p.nombre}</option>
                 ))}
               </select>
-            </div>
-
-            {/* Teléfono con indicativo INDEPENDIENTE al país del Mundial */}
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-mia-cream">
-                Teléfono <span className="text-xs font-normal text-neutral/60">(puede ser diferente al país del Mundial)</span>
-              </label>
-              <div className="flex overflow-hidden rounded-xl border border-mia-border bg-mia-black focus-within:border-mf-coral transition-colors">
-                {/* Select de indicativo — independiente del selector de País */}
-                <select
-                  value={telefonoPais}
-                  onChange={(e) => { setTelefonoPais(e.target.value); setTelefono('') }}
-                  className="shrink-0 border-r border-mia-border bg-mia-black/60 py-3 pl-3 pr-1 text-sm text-mia-cream focus:outline-none appearance-none cursor-pointer"
-                  aria-label="Indicativo del teléfono"
-                >
-                  {PAISES.map((p) => (
-                    <option key={p.codigo} value={p.codigo}>
-                      {p.bandera} {p.dialCode}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value.replace(/[^\d\s]/g, ''))}
-                  placeholder={telefonoPaisData.ejemplo}
-                  className="w-full bg-transparent px-3 py-3 text-mia-cream placeholder:text-neutral/50 focus:outline-none text-sm"
-                />
-              </div>
-              <p className="mt-1.5 text-[11px] text-neutral/50">
-                Se guardará como{' '}
-                <span className="text-neutral font-medium">
-                  {telefonoPaisData.dialCode} {telefono || telefonoPaisData.ejemplo}
-                </span>
-              </p>
             </div>
 
             {error && (
@@ -969,4 +961,3 @@ function Dashboard({ onError }: { onError: (msg: string) => void }) {
     </main>
   )
 }
-

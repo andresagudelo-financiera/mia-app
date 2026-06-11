@@ -149,6 +149,40 @@ export const userApi = {
     };
   },
 
+  async requestPasswordReset(email: string): Promise<boolean> {
+    const response = await fetch('/api/users/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+      cache: 'no-store',
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No se pudo enviar el correo de restablecimiento.');
+    }
+
+    return Boolean(payload?.ok);
+  },
+
+  async resetPassword(input: { email: string; token: string; password: string }): Promise<UserProfile | null> {
+    const response = await fetch('/api/users/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+      cache: 'no-store',
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No se pudo restablecer la contraseña.');
+    }
+
+    return normalizeUser(payload?.user);
+  },
+
   async register(
     data: {
       name: string;

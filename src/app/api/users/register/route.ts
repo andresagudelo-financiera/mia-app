@@ -33,6 +33,32 @@ function toPlainText(value: unknown, fallback = '') {
   return fallback
 }
 
+function getGraphQLErrorMessage(payload: any, fallback: string) {
+  const error = payload?.errors?.[0]
+  const validationErrors = error?.extensions?.validation
+  const originalMessage = error?.extensions?.originalError?.message
+
+  if (validationErrors && typeof validationErrors === 'object') {
+    const firstValidation = Object.values(validationErrors).flat().find(Boolean)
+    if (firstValidation) return String(firstValidation)
+  }
+
+  if (Array.isArray(originalMessage)) {
+    const firstMessage = originalMessage.find(Boolean)
+    if (firstMessage) return String(firstMessage)
+  }
+
+  if (typeof originalMessage === 'string' && originalMessage.trim()) {
+    return originalMessage.trim()
+  }
+
+  if (typeof error?.message === 'string' && error.message.trim()) {
+    return error.message.trim()
+  }
+
+  return fallback
+}
+
 type GhlUtmInput = {
   utmSource?: unknown
   utmMedium?: unknown
@@ -182,20 +208,10 @@ export async function POST(request: Request) {
     const payload = await response.json().catch(() => null)
 
     if (!response.ok || payload?.errors?.length) {
-      let errorMessage = payload?.errors?.[0]?.message || 'No se pudo crear la cuenta.'
-      
-      // Extraer mensajes de validación específicos si existen
-      const validationErrors = payload?.errors?.[0]?.extensions?.validation
-      if (validationErrors) {
-        const messages = Object.values(validationErrors).flat()
-        if (messages.length > 0) {
-          errorMessage = messages.join(' ')
-        }
-      }
-
+      const message = getGraphQLErrorMessage(payload, 'No se pudo crear la cuenta.')
       return NextResponse.json(
-        { user: null, error: errorMessage },
-        { status: response.ok ? 502 : response.status },
+        { user: null, error: message },
+        { status: response.ok ? 400 : response.status },
       )
     }
 
