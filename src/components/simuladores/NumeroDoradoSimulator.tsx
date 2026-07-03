@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Download, Gem, Loader2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import UserRegistrationModal from '@/components/auth/UserRegistrationModal'
 import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
 import { simulatorsApi } from '@/services/api/simulators.api'
@@ -27,7 +27,7 @@ const FIELDS = [
   { key: 'monthlyContribution', label: 'Aporte mensual adicional', suffix: 'money', placeholder: '500000' },
 ]
 
-const HIDDEN_ADVANCED_FIELDS = new Set(['riskScore', 'conservativeReturnRate', 'methodReturnRate'])
+const HIDDEN_ADVANCED_FIELDS = new Set(['riskScore', 'conservativeReturnRate', 'methodReturnRate', 'monthlyContribution'])
 const LOCKED_ADVANCED_FIELDS = new Set(['desiredPostRetirementIncome', 'netReturn'])
 const CONNECTED_ADVANCED_FIELDS = new Set(['totalSavings', 'monthlyContribution'])
 const MIN_YEARS_USING_SAVINGS = 20
@@ -181,7 +181,15 @@ export default function NumeroDoradoSimulator() {
       .then(response => {
         if (!active || !response) return
         const saved = (response.input as any) || response.result?.input
-        if (saved) setForm(current => ({ ...current, ...Object.fromEntries(Object.entries(saved).map(([key, value]) => [key, String(value ?? '')])) }))
+        if (saved) {
+          setForm(current => ({
+            ...current,
+            ...Object.fromEntries(Object.entries(saved).map(([key, value]) => [key, String(value ?? '')])),
+            age: DEFAULTS.age,
+            retirementAge: DEFAULTS.retirementAge,
+            lifeExpectancy: DEFAULTS.lifeExpectancy,
+          }))
+        }
         if (response.result) setResult(response.result)
       })
       .catch(() => undefined)
@@ -303,9 +311,6 @@ export default function NumeroDoradoSimulator() {
         <section className="space-y-8">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-mf-coral/10 px-3 py-1 text-xs font-bold text-mf-coral">
-                <Gem className="h-4 w-4" /> Simulador de retiro
-              </div>
               <h1 className="font-roboto text-3xl font-black tracking-[-0.04em] text-[#171717] md:text-5xl">Número Dorado</h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#5E6470] md:text-base">
                 Estima cuánto necesitas acumular para sostener tu estilo de vida en retiro, ajustando inflación, rentabilidad y tiempo.
@@ -467,13 +472,6 @@ function GoldenJourney({
     currentYears: projectionYears,
     maxExtraYears: 40,
   })
-  const suggestedMonthlySavings = monthlySavingsRequiredForGoal({
-    target: futureMethodNeed,
-    initialCapital: totalSavings,
-    annualReturn: methodReturnRate,
-    years: projectionYears,
-  })
-
   const updateProjectionYears = (years: number) => {
     const currentAge = Number(form.age || 30) || 30
     updateField('age', currentAge)
@@ -587,14 +585,6 @@ function GoldenJourney({
                   value={formatCurrency(futureMethodNeed, selectedCurrency)}
                   returnRate={methodReturnRate}
                 />
-                <MonthlySavingsGoalCard
-                  monthlySavings={suggestedMonthlySavings}
-                  target={futureMethodNeed}
-                  years={projectionYears}
-                  annualReturn={methodReturnRate}
-                  initialCapital={totalSavings}
-                  currency={selectedCurrency}
-                />
               </section>
             </div>
 
@@ -615,7 +605,7 @@ function GoldenJourney({
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">01 · Punto de partida</p>
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
                   <div className="space-y-5">
-                    <StepHeader eyebrow="Capital inicial" title="¿Cuánto dinero ya tienes para empezar?" text="Tu capital inicial reduce la distancia hacia tu número dorado." />
+                    <StepHeader title="¿Cuánto dinero ya tienes para empezar?" text="Tu capital inicial reduce la distancia hacia tu número dorado." />
                     <MoneyRangeField
                       label="Capital inicial disponible"
                       helper="Desliza o escribe cuánto tienes hoy para empezar."
@@ -644,7 +634,7 @@ function GoldenJourney({
               <section className="border-t border-[#E6D8B8] py-6">
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">02 · Plan por etapas</p>
                 <div className="space-y-5">
-                  <StepHeader eyebrow="Aportes y rentabilidad" title="Construye tu meta en dos tiempos" text="Primero defines tu etapa de arranque y después simulas cómo acelerar el plan con aportes y rentabilidad." />
+                  <StepHeader title="Construye tu meta en dos tiempos" text="Primero defines tu etapa de arranque y después simulas cómo acelerar el plan con aportes y rentabilidad." />
                   <div className="grid gap-5 lg:grid-cols-2">
                     <PlanPhaseCard
                       title="Primeros 5 años"
@@ -687,8 +677,7 @@ function GoldenJourney({
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">03 · Vista de logro</p>
                 <div className="max-w-3xl space-y-5">
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">Vista de logro</p>
-                    <h3 className="mt-2 max-w-2xl font-roboto text-2xl font-black leading-tight tracking-[-0.035em] text-[#171717] md:text-3xl">¿Qué tan cerca estás de alcanzarlo?</h3>
+                    <h3 className="max-w-2xl font-roboto text-2xl font-black leading-tight tracking-[-0.035em] text-[#171717] md:text-3xl">¿Qué tan cerca estás de alcanzarlo?</h3>
                   </div>
                   <PlanOutcomeBanner
                     reachesGoal={reachesGoal}
@@ -1010,8 +999,8 @@ function PlanMetricsGrid({ currency, target, projectedCapital, totalInvested, in
   const metrics = [
     { label: 'Meta', value: target, featured: false },
     { label: 'Patrimonio proyectado', value: projectedCapital, featured: true },
-    { label: 'Invertido sin interés', value: totalInvested, featured: false },
-    { label: 'Generado por interés', value: interestGenerated, featured: false },
+    { label: 'Invertido sin rendimientos', value: totalInvested, featured: false },
+    { label: 'Generado por rendimientos', value: interestGenerated, featured: false },
   ]
 
   return (
@@ -1073,55 +1062,6 @@ function GoldenNumberHighlightCard({ years, value, returnRate }: { years: number
   )
 }
 
-
-function MonthlySavingsGoalCard({
-  monthlySavings,
-  target,
-  years,
-  annualReturn,
-  initialCapital,
-  currency,
-}: {
-  monthlySavings: number
-  target: number
-  years: number
-  annualReturn: number
-  initialCapital: number
-  currency: string
-}) {
-  return (
-    <div className="mt-4 relative overflow-hidden rounded-[1.9rem] border border-[#FFB13D]/70 bg-[radial-gradient(circle_at_100%_0%,rgba(255,177,61,0.28),transparent_34%),linear-gradient(135deg,#FFFFFF_0%,#FFF9EC_55%,#FFE4B8_100%)] p-5 shadow-xl shadow-[#D4AF37]/12 md:p-6">
-      <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-[#FF6B2C]/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-20 -left-16 h-44 w-44 rounded-full bg-[#FFB13D]/20 blur-3xl" />
-      <div className="relative grid gap-5 md:grid-cols-[minmax(0,1fr)_minmax(260px,340px)] md:items-stretch">
-        <div className="flex flex-col justify-center">
-          <p className="text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">Plan mensual sugerido</p>
-          <h3 className="mt-2 font-roboto text-2xl font-black leading-tight tracking-[-0.04em] text-[#171717] md:text-3xl">Aporte para llegar a tu número dorado</h3>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#5E6470]">
-            Para llegar a {formatCurrency(target, currency)} en {years} años, este es el ahorro mensual aproximado que necesitas sostener.
-          </p>
-          <p className="mt-3 text-xs leading-5 text-[#8A8274]">
-            {initialCapital > 0
-              ? `Ya descontamos tu capital inicial de ${formatCurrency(initialCapital, currency)}.`
-              : `Calculado como aporte mensual constante con la rentabilidad del ${annualReturn}% que elegiste en esta pestaña.`}
-          </p>
-        </div>
-        <div className="relative overflow-hidden rounded-[1.5rem] border border-[#FFB13D]/60 bg-white p-5 shadow-lg shadow-[#FFB13D]/10">
-          <div className="absolute right-0 top-0 h-full w-24 bg-[linear-gradient(180deg,rgba(255,177,61,.24),transparent)]" />
-          <div className="relative">
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8A6100]/70">Ahorro mensual aprox.</p>
-            <p className="mt-2 break-words font-roboto text-[clamp(2.45rem,6vw,4rem)] font-black leading-none tracking-[-0.07em] text-[#171717]">
-              {formatCurrency(monthlySavings, currency)}
-            </p>
-            <div className="mt-4 rounded-xl bg-[#FFF4C7] px-3 py-2 text-xs font-black text-[#8A6100]">
-              Calculado con rentabilidad anual del {annualReturn}%
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function GoldenMiniStat({ label, value }: { label: string; value: string }) {
   return (
@@ -1209,17 +1149,17 @@ function buildLiveProjectionData({
   const phaseOneRate = monthlyRateFromAnnual(annualReturn)
   const phaseTwoRate = monthlyRateFromAnnual(annualReturnPhase2 ?? annualReturn)
   let balance = Math.max(initialCapital, 0)
-  let baselineBalance = Math.max(initialCapital, 0)
-  const points: Array<{ year: number; capital: number; baselineCapital: number }> = [{ year: 0, capital: balance, baselineCapital: baselineBalance }]
+  let investedBalance = Math.max(initialCapital, 0)
+  const points: Array<{ year: number; capital: number; investedCapital: number }> = [{ year: 0, capital: balance, investedCapital: investedBalance }]
 
   for (let month = 1; month <= months; month += 1) {
     const isPhaseOne = month <= phaseOneMonths
     const contribution = isPhaseOne ? monthlyContribution : (monthlyContributionPhase2 ?? monthlyContribution)
     const monthlyRate = isPhaseOne ? phaseOneRate : phaseTwoRate
     balance = (balance + Math.max(contribution, 0)) * (1 + monthlyRate)
-    baselineBalance = (baselineBalance + Math.max(monthlyContribution, 0)) * (1 + phaseOneRate)
+    investedBalance += Math.max(contribution, 0)
     if (month % 12 === 0 || month === months) {
-      points.push({ year: Math.round(month / 12), capital: balance, baselineCapital: baselineBalance })
+      points.push({ year: Math.round(month / 12), capital: balance, investedCapital: investedBalance })
     }
   }
 
@@ -1293,24 +1233,27 @@ function LiveGoldenProjectionChart({
 }) {
   const extendedYears = years + Math.max(extraYearsNeeded || 0, 0)
   const data = buildLiveProjectionData({ initialCapital, monthlyContribution, annualReturn, monthlyContributionPhase2, annualReturnPhase2, phaseOneYears, years: extendedYears })
-  const maxValue = Math.max(target, conservativeTarget, ...data.map(point => Math.max(point.capital, point.baselineCapital)), 1)
+  const maxValue = Math.max(target, ...data.map(point => Math.max(point.capital, point.investedCapital)), 1)
+  const chartMaxValue = maxValue * 1.16
+  const showConservativeTarget = conservativeTarget > 0 && conservativeTarget <= chartMaxValue
   const achievementYear = data.find(point => point.capital >= target)?.year
   const hasExtraTime = Boolean(extraYearsNeeded && extraYearsNeeded > 0 && achievementYear && achievementYear > years)
 
   return (
-    <div className="relative h-[420px] w-full">
-      <div className="absolute left-3 right-3 top-1 z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="rounded-full border border-[#E6D8B8] bg-white/90 px-3 py-2 text-[11px] font-bold text-[#5E6470] shadow-sm backdrop-blur">
+    <div className="relative w-full">
+      <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="rounded-2xl border border-[#E6D8B8] bg-white/90 px-3 py-2 text-[10px] font-bold leading-5 text-[#5E6470] shadow-sm backdrop-blur sm:rounded-full sm:text-[11px]">
           Horizonte original: <span className="text-[#171717]">{years} años</span>
           {hasExtraTime && <> · Extra: <span className="text-[#E23B2E]">{extraYearsNeeded} años</span> · Logro: <span className="text-[#15803D]">año {achievementYear}</span></>}
         </div>
-        <div className="flex flex-wrap items-center gap-3 rounded-full border border-[#E6D8B8] bg-white/90 px-3 py-2 text-[11px] font-bold text-[#5E6470] shadow-sm backdrop-blur">
-          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-5 rounded-full bg-[#94A3B8]" /> Cómo sería</span>
-          <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-5 rounded-full bg-[#C77800]" /> Con plan</span>
+        <div className="grid gap-2 rounded-2xl border border-[#E6D8B8] bg-white/90 px-3 py-2 text-[10px] font-bold leading-4 text-[#5E6470] shadow-sm backdrop-blur sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:rounded-full sm:text-[11px]">
+          <span className="inline-flex min-w-0 items-center gap-1.5"><span className="h-0.5 w-5 shrink-0 rounded-full bg-[#0EA5A4]" /> <span>Invertido sin rendimientos</span></span>
+          <span className="inline-flex min-w-0 items-center gap-1.5"><span className="h-1 w-5 shrink-0 rounded-full bg-[#FF8A00]" /> <span>Proyección con rendimientos</span></span>
         </div>
       </div>
+      <div className="h-[360px] w-full sm:h-[420px]">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 70, right: 28, left: 0, bottom: 18 }}>
+        <ComposedChart data={data} margin={{ top: 38, right: 14, left: -10, bottom: 18 }}>
           <defs>
             <linearGradient id="liveGoldenCapital" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#FF8A00" stopOpacity={0.42} />
@@ -1319,35 +1262,45 @@ function LiveGoldenProjectionChart({
           </defs>
           <CartesianGrid strokeDasharray="4 6" stroke="rgba(82,72,45,0.14)" vertical={false} />
           <XAxis dataKey="year" tick={{ fill: '#5E6470', fontSize: 11 }} tickLine={false} axisLine={false} tickFormatter={(value) => `Año ${value}`} />
-          <YAxis tick={{ fill: '#5E6470', fontSize: 11 }} tickLine={false} axisLine={false} width={72} domain={[0, maxValue * 1.12]} tickFormatter={(value) => compactCurrency(Number(value), currency)} />
+          <YAxis tick={{ fill: '#5E6470', fontSize: 11 }} tickLine={false} axisLine={false} width={72} domain={[0, chartMaxValue]} tickFormatter={(value) => compactCurrency(Number(value), currency)} />
           <Tooltip
             cursor={{ stroke: '#FF8A00', strokeWidth: 1 }}
             contentStyle={{ background: '#FFFFFF', border: '1px solid #E6D8B8', borderRadius: 14, color: '#171717', boxShadow: '0 18px 40px rgba(23,23,23,0.12)' }}
             formatter={(value: unknown, name: unknown) => [
               formatCurrency(value, currency),
-              name === 'baselineCapital' ? 'Cómo sería' : 'Con plan',
+              name === 'investedCapital' ? 'Invertido sin rendimientos' : 'Proyección con rendimientos',
             ]}
             labelFormatter={(label) => `Año ${label}`}
           />
           <ReferenceLine x={years} stroke="#E23B2E" strokeDasharray="5 5" label={{ value: `Meta ${years} años`, fill: '#E23B2E', fontSize: 11, position: 'top' }} />
           {hasExtraTime && <ReferenceArea x1={years} x2={achievementYear} fill="#EF4444" fillOpacity={0.08} label={{ value: `${extraYearsNeeded} años extra`, fill: '#E23B2E', fontSize: 12, position: 'insideTop' }} />}
-          {conservativeTarget > 0 && <ReferenceLine y={conservativeTarget} stroke="#FF7A3D" strokeDasharray="5 5" label={{ value: 'Sin método', fill: '#D9572B', fontSize: 11, position: 'insideTopRight' }} />}
+          {showConservativeTarget && <ReferenceLine y={conservativeTarget} stroke="#FF7A3D" strokeDasharray="5 5" label={{ value: 'Sin método', fill: '#D9572B', fontSize: 11, position: 'insideTopRight' }} />}
           {target > 0 && <ReferenceLine y={target} stroke="#FF8A00" strokeDasharray="8 5" label={{ value: 'Meta', fill: '#FF6B2C', fontSize: 12, fontWeight: 700, position: 'insideTopRight' }} />}
           {achievementYear !== undefined && <ReferenceLine x={achievementYear} stroke="#16A34A" strokeDasharray="4 5" label={{ value: `Logro año ${achievementYear}`, fill: '#15803D', fontSize: 11, position: 'top' }} />}
-          <Line type="monotone" dataKey="baselineCapital" stroke="#94A3B8" strokeWidth={2.5} strokeDasharray="7 6" dot={false} activeDot={false} />
-          <Area type="monotone" dataKey="capital" stroke="#C77800" strokeWidth={4} fill="url(#liveGoldenCapital)" />
-        </AreaChart>
+          <Area type="monotone" dataKey="capital" stroke="#FF8A00" strokeWidth={4.5} fill="url(#liveGoldenCapital)" name="Proyección con rendimientos" />
+          <Line
+            type="monotone"
+            dataKey="investedCapital"
+            name="Invertido sin rendimientos"
+            stroke="#0EA5A4"
+            strokeWidth={4}
+            strokeDasharray=""
+            dot={{ r: 2.5, fill: '#0EA5A4', strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: '#0EA5A4', stroke: '#FFFFFF', strokeWidth: 2 }}
+          />
+        </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   )
 }
 
 
-function StepHeader({ eyebrow, title, text }: { eyebrow: string; title: string; text: string }) {
+function StepHeader({ eyebrow, title, text }: { eyebrow?: string; title: string; text: string }) {
   return (
     <div>
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">{eyebrow}</p>
-      <h3 className="mt-2 max-w-2xl font-roboto text-2xl font-black leading-tight tracking-[-0.035em] text-[#171717] md:text-3xl">{title}</h3>
+      {eyebrow ? <p className="text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">{eyebrow}</p> : null}
+      <h3 className={`${eyebrow ? 'mt-2' : ''} max-w-2xl font-roboto text-2xl font-black leading-tight tracking-[-0.035em] text-[#171717] md:text-3xl`}>{title}</h3>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5E6470]">{text}</p>
     </div>
   )
@@ -1533,31 +1486,6 @@ function goldenCapitalForFutureLifestyle({
   return futureAnnualNeed / netReturnRate * lifestyleDurationFactor
 }
 
-
-function monthlySavingsRequiredForGoal({
-  target,
-  initialCapital,
-  annualReturn,
-  years,
-}: {
-  target: number
-  initialCapital: number
-  annualReturn: number
-  years: number
-}) {
-  const safeTarget = Math.max(target, 0)
-  const safeInitialCapital = Math.max(initialCapital, 0)
-  const months = Math.max(1, Math.round(years * 12))
-  const monthlyRate = monthlyRateFromAnnual(annualReturn)
-  const futureValueOfInitialCapital = safeInitialCapital * Math.pow(1 + monthlyRate, months)
-  const remainingGoal = Math.max(safeTarget - futureValueOfInitialCapital, 0)
-
-  if (remainingGoal <= 0) return 0
-  if (monthlyRate <= 0) return remainingGoal / months
-
-  const annuityDueFactor = ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) * (1 + monthlyRate)
-  return remainingGoal / annuityDueFactor
-}
 
 function projectCapitalWithContributionPhases({
   initialCapital,
