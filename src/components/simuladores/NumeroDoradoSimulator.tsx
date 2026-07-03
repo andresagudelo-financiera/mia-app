@@ -276,49 +276,7 @@ export default function NumeroDoradoSimulator() {
             </button>
           </div>
 
-          {result?.results && (
-            <div className="mt-8 grid gap-4 lg:grid-cols-[1.35fr_1fr]">
-              <div className="relative overflow-hidden rounded-3xl border border-[#D4AF37]/50 bg-[radial-gradient(circle_at_18%_8%,rgba(255,230,150,0.55),transparent_30%),linear-gradient(135deg,#fff8df_0%,#f7e6a4_38%,#c8942e_100%)] p-6 shadow-2xl shadow-[#D4AF37]/20 sm:p-8 dark:bg-[radial-gradient(circle_at_18%_8%,rgba(255,215,100,0.22),transparent_32%),linear-gradient(135deg,rgba(80,55,10,0.95),rgba(28,24,15,0.96)_55%,rgba(10,10,10,0.98))]">
-                <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white/30 blur-3xl dark:bg-[#D4AF37]/20" />
-                <div className="absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-white/70 to-transparent" />
-                <p className="relative text-xs font-black uppercase tracking-[0.30em] text-[#7A4E00] dark:text-[#F6D56B]">Tu Número Dorado</p>
-                <p className="relative mt-4 block max-w-full whitespace-nowrap font-roboto text-[clamp(1.35rem,4.25vw,2.85rem)] font-black leading-none tracking-[-0.075em] text-[#171717] drop-shadow-[0_1px_0_rgba(255,255,255,0.45)] [font-variant-numeric:tabular-nums] dark:text-[#FFF1B8] dark:drop-shadow-none">
-                  {formatCurrency(result.results.goldenNumber, selectedCurrency)}
-                </p>
-                <p className="relative mt-5 max-w-xl text-sm font-medium leading-relaxed text-[#5F4A16] dark:text-[#F5E7B0]/85">
-                  Capital objetivo estimado para sostener tu retiro según tus supuestos de inflación, rentabilidad y tiempo.
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-                <Metric title="Total aportado (Bolsillo)" value={formatCurrency(result.results.totalOutPocket, selectedCurrency)} />
-                <Metric title="Rendimientos generados" value={formatCurrency(result.results.totalReturns, selectedCurrency)} />
-                <Metric title="Ahorro mensual sugerido" value={formatCurrency(result.results.monthlySavingsWithReturn, selectedCurrency)} />
-              </div>
-
-              <div className="lg:col-span-2">
-                <SimulatorActionBar
-                  title="Número Dorado"
-                  description="Capital objetivo estimado para sostener tu retiro según tus supuestos."
-                  result={result}
-                  fileBaseName="numero-dorado"
-                  advisorMessage="Hola Moneyflow, quiero agendar una asesoría para analizar mi Número Dorado con un Money Strategist."
-                  shareMessage="Calculé mi Número Dorado con Moneyflow para planear mi retiro."
-                />
-              </div>
-
-              <SavingsProjectionChart result={result} currency={selectedCurrency} />
-            </div>
-          )}
         </section>
-
-        {showResultModal && result?.results && (
-          <GoldenNumberResultModal
-            result={result}
-            currency={selectedCurrency}
-            onClose={() => setShowResultModal(false)}
-          />
-        )}
 
         <style jsx global>{`
           @keyframes golden-confetti-fall {
@@ -414,22 +372,22 @@ function GoldenJourney({
   return (
     <section className="space-y-6">
       <div className="rounded-[2rem] border border-[#E6D8B8] bg-[#FFFDF8] p-3 shadow-sm">
-        <div className="grid gap-2 rounded-[1.5rem] bg-[#F5EFE2] p-2 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2 rounded-[1.5rem] bg-[#F5EFE2] p-2">
           <button
             type="button"
             onClick={() => setActiveTab('golden')}
-            className={`rounded-2xl px-5 py-4 text-left transition ${activeTab === 'golden' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#6D6470] hover:bg-white/55'}`}
+            className={`rounded-2xl px-3 py-3 text-left transition sm:px-5 sm:py-4 ${activeTab === 'golden' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#6D6470] hover:bg-white/55'}`}
           >
-            <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#B7791F]"><Gem className="h-4 w-4" /> Número dorado</span>
-            <span className="mt-1 block text-sm font-semibold">Calcula la meta con pocas variables.</span>
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#B7791F] sm:gap-2 sm:text-xs sm:tracking-[0.18em]"><Gem className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" /> Número dorado</span>
+            <span className="mt-1 hidden text-sm font-semibold sm:block">Calcula la meta con pocas variables.</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('plan')}
-            className={`rounded-2xl px-5 py-4 text-left transition ${activeTab === 'plan' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#6D6470] hover:bg-white/55'}`}
+            className={`rounded-2xl px-3 py-3 text-left transition sm:px-5 sm:py-4 ${activeTab === 'plan' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#6D6470] hover:bg-white/55'}`}
           >
-            <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-[#B7791F]"><Sparkles className="h-4 w-4" /> Cómo alcanzarlo</span>
-            <span className="mt-1 block text-sm font-semibold">Juega con aportes, capital y rentabilidad.</span>
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#B7791F] sm:gap-2 sm:text-xs sm:tracking-[0.18em]"><Sparkles className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" /> Cómo alcanzarlo</span>
+            <span className="mt-1 hidden text-sm font-semibold sm:block">Juega con aportes, capital y rentabilidad.</span>
           </button>
         </div>
       </div>
@@ -442,10 +400,10 @@ function GoldenJourney({
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">01 · Hoy</p>
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
                   <div className="space-y-5">
-                    <StepHeader eyebrow="Tu vida actual" title="¿Cuánto ingreso mensual quieres cubrir?" text="Esta es la pregunta base: cuánto quieres que tu patrimonio produzca cada mes para sostener tu estilo de vida." />
-                    <MoneyField label="Ingresa tu ingreso mensual objetivo" value={monthlyTarget} currency={selectedCurrency} onCurrencyChange={currency => updateField('currency', currency)} onChange={updateMonthlyTarget} />
+                    <StepHeader eyebrow="Tu vida actual" title="¿Cuánto ingreso mensual quieres cubrir?" text="Elige cuánto dinero te gustaría recibir cada mes para cubrir tu estilo de vida." />
+                    <MoneyField label="Ingresa el monto mensual que quieres cubrir" value={monthlyTarget} currency={selectedCurrency} onCurrencyChange={currency => updateField('currency', currency)} onChange={updateMonthlyTarget} />
                     <RangeField
-                      label="¿Qué tasa de interés sabés obtener de tus inversiones?"
+                      label="¿Qué rentabilidad anual quieres usar para calcular?"
                       value={conservativeReturnRate}
                       min={1}
                       max={15}
@@ -453,17 +411,17 @@ function GoldenJourney({
                       onChange={value => updateField('conservativeReturnRate', value)}
                     />
                     <p className="text-sm font-semibold text-[#5E6470]">
-                      Equivalente mensual: <span className="font-black text-[#FF6B2C]">{(monthlyRateFromAnnual(conservativeReturnRate) * 100).toFixed(3)}%</span>
+                      Esto equivale al mes: <span className="font-black text-[#FF6B2C]">{(monthlyRateFromAnnual(conservativeReturnRate) * 100).toFixed(3)}%</span>
                     </p>
                   </div>
 
                   <DefinitionCard
                     eyebrow="Definición"
-                    title="Ingreso mensual objetivo"
-                    text="Es la cantidad de dinero que quieres recibir mensualmente desde tu patrimonio, sin depender de un salario. A partir de esta cifra nace tu número dorado."
+                    title="Dinero necesario hoy"
+                    text="Esto es lo que necesitarías tener invertido hoy para producir el ingreso mensual que elegiste."
                     metricLabel="Patrimonio necesario hoy"
                     metricValue={formatCurrency(currentPassiveNeed, selectedCurrency)}
-                    note={`Con TR conservadora del ${conservativeReturnRate}% anual.`}
+                    note={`Calculado con una rentabilidad anual del ${conservativeReturnRate}%.`}
                   />
                 </div>
               </section>
@@ -472,15 +430,15 @@ function GoldenJourney({
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">02 · Futuro</p>
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_390px]">
                   <div className="space-y-5">
-                    <StepHeader eyebrow="Tu horizonte" title="¿En cuánto tiempo quieres lograrlo?" text="Movemos solo el horizonte y la TR futura para que el usuario vea el impacto sin llenar demasiados campos." />
+                    <StepHeader eyebrow="Tu horizonte" title="¿En cuánto tiempo quieres lograrlo?" text="Elige en cuántos años quieres llegar a tu meta y prueba una rentabilidad anual estimada." />
                     <RangeField label="Años de proyección" value={projectionYears} min={5} max={25} suffix="años" onChange={updateProjectionYears} />
-                    <RangeField label="TR anual futura" value={methodReturnRate} min={4} max={24} suffix="%" onChange={value => {
+                    <RangeField label="Rentabilidad anual esperada" value={methodReturnRate} min={4} max={24} suffix="%" onChange={value => {
                       updateField('methodReturnRate', value)
                       updateField('expectedReturnRate', value)
                       updateField('riskScore', value)
                     }} />
                     <p className="text-sm leading-relaxed text-[#5E6470]">
-                      Calculamos con inflación promedio del <strong className="text-[#B7791F]">{averageInflation}% anual</strong> y vida promedio referencial de <strong>{averageLifeExpectancy} años</strong>.
+                      Usamos una inflación promedio del <strong className="text-[#B7791F]">{averageInflation}% anual</strong> y una vida de referencia de <strong>{averageLifeExpectancy} años</strong>.
                     </p>
                   </div>
 
@@ -488,7 +446,7 @@ function GoldenJourney({
                     <DefinitionCard
                       eyebrow="Proyección"
                       title="Costo de vida futuro"
-                      text="La inflación hace que vivir igual cueste más. Este valor muestra cuánto necesitarías al mes para sostener el mismo estilo de vida."
+                      text="Con el tiempo, vivir igual puede costar más. Este valor estima cuánto necesitarías al mes en el futuro."
                       metricLabel={`Gasto mensual en ${projectionYears} años`}
                       metricValue={formatCurrency(projectedMonthlyTarget, selectedCurrency)}
                       note={`Hoy partes de ${formatCurrency(monthlyTarget, selectedCurrency)} mensuales.`}
@@ -537,10 +495,10 @@ function GoldenJourney({
                   <DefinitionCard
                     eyebrow="Meta con método"
                     title="Tu punto de partida frente a la meta"
-                    text="Este valor compara lo que ya tienes con el patrimonio objetivo calculado usando la TR del método."
+                    text="Comparamos lo que ya tienes con la meta que necesitas alcanzar."
                     metricLabel="Número dorado con método"
                     metricValue={formatCurrency(futureMethodNeed, selectedCurrency)}
-                    note={`Con TR futura del ${methodReturnRate}% anual.`}
+                    note={`Calculado con una rentabilidad anual del ${methodReturnRate}%.`}
                   />
                 </div>
               </section>
@@ -586,8 +544,8 @@ function GoldenJourney({
                 <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">03 · Rentabilidad</p>
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
                   <div className="space-y-5">
-                    <StepHeader eyebrow="TR del método" title="¿Qué rentabilidad quieres simular?" text="Mueve la TR para ver cómo el conocimiento cambia la viabilidad del plan." />
-                    <RangeField label="TR / rentabilidad anual con metodología" value={methodReturnRate} min={4} max={24} suffix="%" onChange={value => {
+                    <StepHeader eyebrow="Rentabilidad del método" title="¿Qué rentabilidad quieres simular?" text="Mueve la rentabilidad para ver cómo cambia la meta y qué tan alcanzable se vuelve." />
+                    <RangeField label="Rentabilidad anual con metodología" value={methodReturnRate} min={4} max={24} suffix="%" onChange={value => {
                       updateField('methodReturnRate', value)
                       updateField('expectedReturnRate', value)
                       updateField('riskScore', value)
@@ -597,10 +555,10 @@ function GoldenJourney({
                   <DefinitionCard
                     eyebrow="Reducción por método"
                     title="El conocimiento reduce la cifra necesaria"
-                    text="Una mayor TR permite producir el mismo ingreso con menos patrimonio objetivo."
+                    text="Una mayor rentabilidad puede ayudarte a necesitar menos capital para lograr el mismo ingreso."
                     metricLabel="Reducción estimada"
                     metricValue={formatCurrency(methodReduction, selectedCurrency)}
-                    note={`Comparado contra TR conservadora del ${conservativeReturnRate}% anual.`}
+                    note={`Comparado con una rentabilidad anual base del ${conservativeReturnRate}%.`}
                   />
                 </div>
               </section>
@@ -621,7 +579,7 @@ function GoldenJourney({
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">Gráfica de avance</p>
                   <h3 className="mt-1 font-roboto text-2xl font-black text-[#171717]">Camino proyectado vs número dorado</h3>
-                  <p className="mt-1 text-sm text-[#5E6470]">Capital + aportes + TR del método contra la meta.</p>
+                  <p className="mt-1 text-sm text-[#5E6470]">Capital + aportes + Rentabilidad del método contra la meta.</p>
                 </div>
               </div>
               <LiveGoldenProjectionChart
@@ -852,7 +810,7 @@ function GoldenNumberHighlightCard({ years, value, returnRate }: { years: number
           <p className="text-xs font-black uppercase tracking-[0.24em] text-[#B7791F]">Resultado · Número dorado</p>
           <h3 className="mt-3 font-roboto text-2xl font-black leading-tight tracking-[-0.04em] text-[#171717] md:text-3xl">Tu meta financiera proyectada</h3>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#5E6470]">
-            Este es el patrimonio objetivo que necesitarías construir para sostener tu estilo de vida futuro con ingresos pasivos.
+            Esta es la meta aproximada que necesitas construir para mantener tu estilo de vida con ingresos de tus inversiones.
           </p>
         </div>
         <div className="lg:text-right">
@@ -860,7 +818,7 @@ function GoldenNumberHighlightCard({ years, value, returnRate }: { years: number
           <p className="mt-2 break-words font-roboto text-[clamp(2.6rem,7vw,5.25rem)] font-black leading-none tracking-[-0.075em] text-[#171717]">
             {value}
           </p>
-          <p className="mt-3 text-sm font-black text-[#B7791F]">Con TR futura del {returnRate}% anual.</p>
+          <p className="mt-3 text-sm font-black text-[#B7791F]">Con una rentabilidad anual del {returnRate}%.</p>
         </div>
       </div>
     </div>
@@ -1030,9 +988,11 @@ function RangeField({ label, value, min, max, suffix, onChange }: { label: strin
   const safeValue = Number.isFinite(value) && value > 0 ? value : min
   return (
     <label className="block rounded-2xl border border-[#E6D8B8] bg-white p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <span className="text-sm font-bold text-[#5E6470]">{label}</span>
-        <span className="rounded-full bg-[#FFF4C7] px-3 py-1 text-sm font-black text-[#8A6100]">{safeValue} {suffix}</span>
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <span className="min-w-0 flex-1 text-sm font-bold leading-snug text-[#5E6470]">{label}</span>
+        <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FFF4C7] px-3 py-1 text-center text-sm font-black leading-none text-[#8A6100]">
+          {safeValue} {suffix}
+        </span>
       </div>
       <input
         type="range"

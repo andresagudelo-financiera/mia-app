@@ -9,6 +9,7 @@ interface UserStore {
   profile: UserProfile | null
   isRegistered: boolean
   register: (data: RegisterInput, toolName?: string) => Promise<void>
+  progressiveEntry: (data: RegisterInput, toolName?: string) => Promise<void>
   login: (email: string, password: string, toolName?: string) => Promise<boolean>
   setInitialPassword: (data: { email: string; phone: string; password: string }, toolName?: string) => Promise<boolean>
   refreshProfile: () => Promise<UserProfile | null>
@@ -38,6 +39,13 @@ export const useUserStore = create<UserStore>()(
         }
 
         const profile = await userApi.register(data, toolName);
+        if (profile) {
+          set({ profile, isRegistered: true });
+        }
+      },
+
+      progressiveEntry: async (data, toolName = 'rentabilidad') => {
+        const profile = await userApi.progressiveEntry(data, toolName);
         if (profile) {
           set({ profile, isRegistered: true });
         }
