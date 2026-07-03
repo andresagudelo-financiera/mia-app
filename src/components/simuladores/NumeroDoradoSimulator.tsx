@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Download, Gem, Loader2, SlidersHorizontal, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CalendarClock, ChevronLeft, ChevronRight, Download, Gem, Loader2, Sparkles, X } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import UserRegistrationModal from '@/components/auth/UserRegistrationModal'
 import SimulatorActionBar from '@/components/simuladores/SimulatorActionBar'
@@ -11,33 +11,7 @@ import { useUserStore } from '@/stores/user.store'
 import { pushEvent, trackMetaEvent } from '@/lib/analytics'
 import { SUPPORTED_CURRENCIES } from '@/lib/constants'
 
-const FIELDS = [
-  { key: 'age', label: 'Edad actual', suffix: 'años', placeholder: '35' },
-  { key: 'retirementAge', label: 'Edad libertad financiera', suffix: 'años', placeholder: '60' },
-  { key: 'lifeExpectancy', label: 'Esperanza de vida', suffix: 'años', placeholder: '85' },
-  { key: 'desiredPostRetirementIncome', label: 'Ingreso anual deseado en futuro', suffix: 'money', placeholder: '120000000' },
-  { key: 'otherIncomeSources', label: 'Otros ingresos anuales esperados', suffix: 'money', placeholder: '0' },
-  { key: 'estimatedInflation', label: 'Inflación anual estimada', suffix: '%', placeholder: '6' },
-  { key: 'expectedReturnRate', label: 'Rentabilidad esperada anual', suffix: '%', placeholder: '10' },
-  { key: 'netReturn', label: 'Rentabilidad neta objetivo', suffix: '%', placeholder: '4' },
-  { key: 'totalSavings', label: 'Capital inicial disponible', suffix: 'money', placeholder: '50000000' },
-  { key: 'riskScore', label: 'Score/rentabilidad de referencia', suffix: '%', placeholder: '8' },
-  { key: 'conservativeReturnRate', label: 'Rentabilidad conservadora (Domingo)', suffix: '%', placeholder: '6' },
-  { key: 'methodReturnRate', label: 'Rentabilidad con metodología (Lunes)', suffix: '%', placeholder: '14' },
-  { key: 'monthlyContribution', label: 'Aporte mensual adicional', suffix: 'money', placeholder: '500000' },
-]
-
-const HIDDEN_ADVANCED_FIELDS = new Set(['riskScore', 'conservativeReturnRate', 'methodReturnRate', 'monthlyContribution'])
-const LOCKED_ADVANCED_FIELDS = new Set(['desiredPostRetirementIncome', 'netReturn'])
-const CONNECTED_ADVANCED_FIELDS = new Set(['totalSavings', 'monthlyContribution'])
 const MIN_YEARS_USING_SAVINGS = 20
-
-function getAdvancedFieldHint(key: string) {
-  if (key === 'desiredPostRetirementIncome') return 'Se calcula con el ingreso mensual que elegiste en Número Dorado.'
-  if (key === 'netReturn') return 'Se calcula automáticamente con la rentabilidad esperada menos la inflación.'
-  if (CONNECTED_ADVANCED_FIELDS.has(key)) return 'Conectado con la pestaña “Cómo alcanzarlo”.'
-  return ''
-}
 
 type FormState = Record<string, string>
 
@@ -45,7 +19,7 @@ const DEFAULTS: FormState = {
   age: '30',
   retirementAge: '40',
   lifeExpectancy: '60',
-  estimatedInflation: '6',
+  estimatedInflation: '4',
   expectedReturnRate: '10',
   netReturn: '4',
   otherIncomeSources: '0',
@@ -127,12 +101,11 @@ export default function NumeroDoradoSimulator() {
   const [showResultModal, setShowResultModal] = useState(false)
   const [reportName, setReportName] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
-  const [showAdvanced, setShowAdvanced] = useState(false)
   const selectedCurrency = form.currency || profile?.baseCurrency || 'COP'
   const monthlyTarget = Math.round((Number(form.desiredPostRetirementIncome || 0) || 0) / 12)
   const yearsToRetirement = Math.max(0, Number(form.retirementAge || 0) - Number(form.age || 0))
   const journeyComplete = Boolean(Number(form.age) && Number(form.retirementAge) && Number(form.desiredPostRetirementIncome))
-  const averageInflation = 4
+  const averageInflation = Number(form.estimatedInflation || 4)
   const conservativeReturnRate = Number(form.conservativeReturnRate || 6)
   const methodReturnRate = Number(form.methodReturnRate || form.expectedReturnRate || 14)
   const projectionYears = Math.max(1, yearsToRetirement || 10)
@@ -322,8 +295,6 @@ export default function NumeroDoradoSimulator() {
           <GoldenJourney
             form={form}
             selectedCurrency={selectedCurrency}
-            showAdvanced={showAdvanced}
-            setShowAdvanced={setShowAdvanced}
             updateField={updateField}
             updateMonthlyTarget={updateMonthlyTarget}
             monthlyTarget={monthlyTarget}
@@ -398,8 +369,6 @@ function fireGoldenConfetti() {
 function GoldenJourney({
   form,
   selectedCurrency,
-  showAdvanced,
-  setShowAdvanced,
   updateField,
   updateMonthlyTarget,
   monthlyTarget,
@@ -407,15 +376,13 @@ function GoldenJourney({
 }: {
   form: FormState
   selectedCurrency: string
-  showAdvanced: boolean
-  setShowAdvanced: (value: boolean) => void
   updateField: (key: string, value: string | number) => void
   updateMonthlyTarget: (monthly: number) => void
   monthlyTarget: number
   yearsToRetirement: number
 }) {
   const [activeTab, setActiveTab] = useState<'golden' | 'plan'>('golden')
-  const averageInflation = 4
+  const averageInflation = Number(form.estimatedInflation || 4)
   const averageLifeExpectancy = 60
   const conservativeReturnRate = Number(form.conservativeReturnRate || 6)
   const methodReturnRate = Number(form.methodReturnRate || form.expectedReturnRate || 14)
@@ -528,7 +495,7 @@ function GoldenJourney({
                         <span className="text-sm font-black text-[#8A6100]">años</span>
                       </div>
                     </label>
-                    <MoneyField label="Ingresa el monto mensual que quieres cubrir" value={monthlyTarget} currency={selectedCurrency} onCurrencyChange={currency => updateField('currency', currency)} onChange={updateMonthlyTarget} />
+                    <MoneyField label="¿Cuánto gastas hoy?" value={monthlyTarget} currency={selectedCurrency} onCurrencyChange={currency => updateField('currency', currency)} onChange={updateMonthlyTarget} />
                     <RangeField
                       label="¿Qué rentabilidad anual quieres usar para calcular?"
                       value={conservativeReturnRate}
@@ -602,7 +569,129 @@ function GoldenJourney({
           <div className="pt-2">
             <div className="space-y-0">
               <section className="py-6">
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">01 · Punto de partida</p>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">01 · Tu número dorado</p>
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
+                  <div className="space-y-5">
+                    <StepHeader eyebrow="Calcula tu meta" title="Primero define tu punto de vida" text="Completa estos datos aquí mismo para usar este tab sin volver al cálculo inicial." />
+                    <div className="rounded-2xl border border-[#E6D8B8] bg-white p-5">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-bold text-[#5E6470]">¿Cuántos años tienes?</span>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            value={form.age || ''}
+                            onChange={event => updateField('age', event.target.value)}
+                            placeholder="30"
+                            className="w-full rounded-2xl border border-[#E6D8B8] bg-[#FBFAF4] px-5 py-4 font-roboto text-2xl font-black tracking-[-0.035em] text-[#171717] outline-none transition focus:border-[#E4AF24] focus:ring-2 focus:ring-[#FFB13D]/20"
+                          />
+                          <span className="shrink-0 text-sm font-black text-[#8A6100]">años</span>
+                        </div>
+                      </label>
+
+                      <label className="mt-5 block border-t border-[#E6D8B8] pt-5">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <span className="min-w-0 flex-1 text-sm font-bold leading-snug text-[#5E6470]">Años para lograrlo</span>
+                          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FFF4C7] px-3 py-1 text-center text-sm font-black leading-none text-[#8A6100]">
+                            {projectionYears} años
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={5}
+                          max={40}
+                          value={projectionYears}
+                          onChange={event => updateProjectionYears(Number(event.target.value))}
+                          className="w-full accent-[#D4AF37]"
+                        />
+                      </label>
+                    </div>
+                    <div className="rounded-2xl border border-[#E6D8B8] bg-white p-5">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-bold text-[#5E6470]">¿Cuánto gastas hoy?</span>
+                        <div className="flex items-stretch overflow-hidden rounded-2xl border border-[#E6D8B8] bg-[#FBFAF4] transition focus-within:border-[#E4AF24] focus-within:ring-2 focus-within:ring-[#FFB13D]/20">
+                          <select
+                            aria-label="Moneda"
+                            value={selectedCurrency}
+                            onChange={event => updateField('currency', event.target.value)}
+                            className="w-[104px] border-r border-[#E6D8B8] bg-[#FFF4C7] px-4 text-sm font-black text-[#8A6100] outline-none"
+                          >
+                            {SUPPORTED_CURRENCIES.map(option => (
+                              <option key={option} value={option}>{option}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={formatMoneyInput(monthlyTarget)}
+                            onChange={event => updateMonthlyTarget(parseMoneyInput(event.target.value))}
+                            placeholder="0"
+                            className="w-full bg-transparent px-5 py-4 font-roboto text-2xl font-black tracking-[-0.035em] text-[#171717] outline-none placeholder:text-[#C7BDA8] md:text-3xl"
+                          />
+                        </div>
+                      </label>
+
+                      <div className="mt-5 border-t border-[#E6D8B8] pt-5">
+                        <label className="block">
+                          <div className="mb-3 flex items-start justify-between gap-3">
+                            <span className="min-w-0 flex-1 text-sm font-bold leading-snug text-[#5E6470]">¿Qué rentabilidad anual quieres usar para calcular?</span>
+                            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FFF4C7] px-3 py-1 text-center text-sm font-black leading-none text-[#8A6100]">
+                              {methodReturnRate} %
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min={4}
+                            max={24}
+                            value={methodReturnRate}
+                            onChange={event => {
+                              const value = Number(event.target.value)
+                              updateField('methodReturnRate', value)
+                              updateField('expectedReturnRate', value)
+                              updateField('riskScore', value)
+                            }}
+                            className="w-full accent-[#D4AF37]"
+                          />
+                        </label>
+                        <p className="mt-3 text-sm font-semibold text-[#5E6470]">
+                          Esto equivale al mes: <span className="font-black text-[#FF6B2C]">{(monthlyRateFromAnnual(methodReturnRate) * 100).toFixed(3)}%</span>
+                        </p>
+                      </div>
+
+                      <label className="mt-5 block border-t border-[#E6D8B8] pt-5">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <span className="min-w-0 flex-1 text-sm font-bold leading-snug text-[#5E6470]">Inflación anual estimada</span>
+                          <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FFF4C7] px-3 py-1 text-center text-sm font-black leading-none text-[#8A6100]">
+                            {averageInflation} %
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={12}
+                          value={averageInflation}
+                          onChange={event => updateField('estimatedInflation', Number(event.target.value))}
+                          className="w-full accent-[#D4AF37]"
+                        />
+                      </label>
+                    </div>
+                  </div>
+
+                  <DefinitionCard
+                    eyebrow="Meta base"
+                    title="Número dorado a alcanzar"
+                    text="Esta es la meta que usaremos para simular tu capital inicial, tus aportes y el camino para alcanzarla."
+                    metricLabel={`Patrimonio necesario en ${projectionYears} años`}
+                    metricValue={formatCurrency(futureMethodNeed, selectedCurrency)}
+                    note={`Calculado con una rentabilidad anual del ${methodReturnRate}%.`}
+                    compact
+                  />
+                </div>
+              </section>
+
+              <section className="border-t border-[#E6D8B8] py-6">
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">02 · Punto de partida</p>
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_390px]">
                   <div className="space-y-5">
                     <StepHeader title="¿Cuánto dinero ya tienes para empezar?" text="Tu capital inicial reduce la distancia hacia tu número dorado." />
@@ -632,7 +721,7 @@ function GoldenJourney({
               </section>
 
               <section className="border-t border-[#E6D8B8] py-6">
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">02 · Plan por etapas</p>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">03 · Plan por etapas</p>
                 <div className="space-y-5">
                   <StepHeader title="Construye tu meta en dos tiempos" text="Primero defines tu etapa de arranque y después simulas cómo acelerar el plan con aportes y rentabilidad." />
                   <div className="grid gap-5 lg:grid-cols-2">
@@ -674,7 +763,7 @@ function GoldenJourney({
               </section>
 
               <section className="border-t border-[#E6D8B8] py-6">
-                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">03 · Vista de logro</p>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.22em] text-[#B7791F]">04 · Vista de logro</p>
                 <div className="max-w-3xl space-y-5">
                   <div>
                     <h3 className="max-w-2xl font-roboto text-2xl font-black leading-tight tracking-[-0.035em] text-[#171717] md:text-3xl">¿Qué tan cerca estás de alcanzarlo?</h3>
@@ -719,55 +808,6 @@ function GoldenJourney({
                 years={projectionYears}
               />
             </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-[2rem] border border-[#E6D8B8] bg-[#FFFDF8] p-5 shadow-sm">
-        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="inline-flex items-center gap-2 text-sm font-black text-[#B7791F]">
-          <SlidersHorizontal className="h-4 w-4" /> {showAdvanced ? 'Ocultar modo avanzado' : 'Mostrar modo avanzado'}
-        </button>
-
-        {showAdvanced && (
-          <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <label className="block rounded-2xl border border-[#E6D8B8] bg-white p-4">
-              <span className="mb-2 block text-xs font-black uppercase tracking-wide text-[#5E6470]">Moneda de cálculo</span>
-              <select
-                value={selectedCurrency}
-                onChange={event => updateField('currency', event.target.value)}
-                className="w-full rounded-xl border border-[#E6D8B8] bg-[#FBFAF4] px-4 py-3 text-sm font-semibold text-[#171717] outline-none transition focus:border-[#E4AF24]"
-              >
-                {SUPPORTED_CURRENCIES.map(currency => (
-                  <option key={currency} value={currency}>{currency}</option>
-                ))}
-              </select>
-            </label>
-            {FIELDS.filter(field => !HIDDEN_ADVANCED_FIELDS.has(field.key)).map(field => {
-              const isLocked = LOCKED_ADVANCED_FIELDS.has(field.key)
-              const fieldHint = getAdvancedFieldHint(field.key)
-
-              return (
-              <label key={field.key} className={`block rounded-2xl border border-[#E6D8B8] p-4 ${isLocked ? 'bg-[#F5EFE2]' : 'bg-white'}`}>
-                <span className="mb-2 block text-xs font-black uppercase tracking-wide text-[#5E6470]">{field.label}</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    value={form[field.key] ?? ''}
-                    onChange={event => {
-                      if (!isLocked) updateField(field.key, event.target.value)
-                    }}
-                    placeholder={field.placeholder}
-                    disabled={isLocked}
-                    aria-readonly={isLocked}
-                    className={`w-full rounded-xl border border-[#E6D8B8] px-4 py-3 text-sm text-[#171717] outline-none transition focus:border-[#E4AF24] disabled:cursor-not-allowed disabled:bg-[#EFE8D8] disabled:text-[#8A8274] ${isLocked ? 'opacity-75' : 'bg-[#FBFAF4]'}`}
-                  />
-                  <span className="min-w-10 text-xs font-semibold text-[#5E6470]">{field.suffix === 'money' ? selectedCurrency : field.suffix}</span>
-                </div>
-                {fieldHint && <p className="mt-2 text-xs leading-5 text-[#8A8274]">{fieldHint}</p>}
-              </label>
-              )
-            })}
           </div>
         )}
       </div>
@@ -923,7 +963,7 @@ function MonthlyIncomeSlider({ value, currency, onChange }: { value: number; cur
 
 function DefinitionCard({ eyebrow, title, text, metricLabel, metricValue, note, compact = false }: { eyebrow: string; title: string; text: string; metricLabel: string; metricValue: string; note: string; compact?: boolean }) {
   return (
-    <div className={`flex h-full flex-col justify-center rounded-[1.75rem] border border-[#E6D8B8] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF6DD_100%)] ${compact ? 'min-h-[240px] p-5' : 'min-h-[360px] p-6'}`}>
+    <div className={`flex h-full flex-col justify-start rounded-[1.75rem] border border-[#E6D8B8] bg-[linear-gradient(135deg,#FFFDF8_0%,#FFF6DD_100%)] ${compact ? 'min-h-[210px] p-5' : 'min-h-[260px] p-6'}`}>
       <p className="text-xs font-black uppercase tracking-[0.24em] text-[#B7791F]">{eyebrow}</p>
       <h3 className={`mt-3 font-roboto font-black leading-tight tracking-[-0.035em] text-[#171717] ${compact ? 'text-xl' : 'text-2xl'}`}>{title}</h3>
       <p className={`mt-3 text-sm leading-relaxed text-[#5E6470] ${compact ? 'max-w-xl' : ''}`}>{text}</p>
