@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import type { ElementType } from 'react'
-import { Eye, EyeOff, Lock, Power, TimerReset } from 'lucide-react'
+import { Eye, EyeOff, Lock, Power, Search, TimerReset } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
 import type { Simulator, SimulatorAccessType, SimulatorStatus } from '@/types/rentabilidad'
 import StatusBadge from '@/components/admin/StatusBadge'
@@ -13,6 +13,7 @@ const accessOptions: SimulatorAccessType[] = ['free', 'demo', 'paid', 'admin_onl
 
 export default function AdminSimulatorsPage() {
   const [simulators, setSimulators] = useState<Simulator[]>([])
+  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,19 +49,38 @@ export default function AdminSimulatorsPage() {
     }
   }
 
+  const filteredSimulators = simulators.filter(sim =>
+    (sim.name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (sim.slug || sim.id || '').toLowerCase().includes(search.toLowerCase()) ||
+    (sim.description || '').toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="font-heading text-3xl font-bold text-mia-cream">Configuración de simuladores</h2>
-        <p className="max-w-2xl text-sm text-neutral">
-          Enciende/apaga herramientas, define si son gratuitas, demo, pagas o solo admin. “Pago” queda listo para cobro manual ahora y pasarela después.
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-heading text-3xl font-bold text-mia-cream">Configuración de simuladores</h2>
+          <p className="max-w-2xl text-sm text-neutral">
+            Enciende/apaga herramientas, define si son gratuitas, demo, pagas o solo admin. “Pago” queda listo para cobro manual ahora y pasarela después.
+          </p>
+        </div>
+        <div className="relative w-full sm:max-w-xs">
+          <span className="sr-only">Buscar simulador</span>
+          <input
+            type="text"
+            placeholder="Buscar simulador..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-mia-border bg-mia-surface px-4 py-3 pl-10 text-sm text-mia-cream outline-none focus:border-mf-coral"
+          />
+          <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-neutral" />
+        </div>
       </div>
 
       {error && <div className="rounded-2xl border border-mf-orange/30 bg-mf-orange/10 p-4 text-sm text-mf-orange">{error}</div>}
 
       <div className="grid gap-5">
-        {simulators.map(sim => (
+        {filteredSimulators.map(sim => (
           <section key={sim.id} className="glass rounded-2xl border border-mia-border p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-xl">

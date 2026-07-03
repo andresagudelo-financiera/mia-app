@@ -152,6 +152,8 @@ const GET_MIA_USER = gql`
         updatedAt
       }
       rentabilidadData
+      worldCupParticipant
+      worldCupSavings
     }
   }
 `
@@ -540,6 +542,8 @@ function mapMiaUser(user: any): AdminUserSummary {
     hasCompletedOnboarding: Boolean(user.hasCompletedOnboarding),
     accesses,
     simulatorResponses: Array.isArray(user.simulatorResponses) ? user.simulatorResponses : [],
+    worldCupParticipant: user.worldCupParticipant || null,
+    worldCupSavings: user.worldCupSavings || null,
     investmentCount: Array.isArray(user.rentabilidadData?.investments) ? user.rentabilidadData.investments.length : 0,
     transactionCount: Array.isArray(user.rentabilidadData?.transactions) ? user.rentabilidadData.transactions.length : 0,
     snapshotCount: Array.isArray(user.rentabilidadData?.snapshots) ? user.rentabilidadData.snapshots.length : 0,

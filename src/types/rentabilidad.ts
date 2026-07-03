@@ -198,6 +198,20 @@ export type AdminUserSummary = UserProfile & {
   pdfDownloadCount?: number
   lastSimulatorUsed?: string
   simulatorResponses?: GenericSimulatorResponse[]
+  worldCupParticipant?: {
+    id: string
+    displayName: string
+    phone?: string | null
+    country: string
+    createdAt: string
+  } | null
+  worldCupSavings?: Array<{
+    id: string
+    amount: number
+    currency: string
+    date: string
+    createdAt: string
+  }> | null
 }
 
 export type AdminUserDetail = AdminUserSummary & {

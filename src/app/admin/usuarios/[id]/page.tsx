@@ -374,6 +374,18 @@ function buildSimulatorSections(user: AdminUserDetail | null, simulators: Simula
     })
   }
 
+  if (user.worldCupParticipant) {
+    addSection('desafio-mundial', {
+      title: 'Desafío Mundial 2030 (Reto de Ahorro)',
+      data: {
+        participant: user.worldCupParticipant,
+        savings: user.worldCupSavings || [],
+        simulatorKey: 'desafio-mundial',
+      },
+      hasData: true,
+    })
+  }
+
   return Array.from(bySlug.values()).sort((a, b) => Number(b.hasData) - Number(a.hasData) || a.title.localeCompare(b.title))
 }
 
@@ -413,7 +425,7 @@ function CalculatorResponses({
   const transactions = Array.isArray(data?.transactions) ? data.transactions : []
   const snapshots = Array.isArray(data?.snapshots) ? data.snapshots : []
   const isGenericResponse = Boolean(data?.simulatorKey || data?.input || data?.result) && slug !== 'rentabilidad'
-  const hasResponses = investments.length > 0 || transactions.length > 0 || snapshots.length > 0 || Boolean(data?.config) || Boolean(data?.input || data?.result)
+  const hasResponses = investments.length > 0 || transactions.length > 0 || snapshots.length > 0 || Boolean(data?.config) || Boolean(data?.input || data?.result) || slug === 'desafio-mundial'
 
   if (isGenericResponse) {
     return (
@@ -430,7 +442,7 @@ function CalculatorResponses({
           </div>
           <div className="rounded-xl border border-mia-border bg-mia-surface/40 px-4 py-3 text-xs text-neutral md:text-right">
             <p>Última actualización</p>
-            <p className="font-semibold text-mia-cream">{data?.updatedAt ? formatRelativeTime(data.updatedAt) : 'Sin datos'}</p>
+            <p className="font-semibold text-mia-cream">{data?.updatedAt || data?.participant?.createdAt ? formatRelativeTime(data.updatedAt || data.participant.createdAt) : 'Sin datos'}</p>
             {data?.completedAt && <p className="mt-1">Completado: {formatDate(data.completedAt)}</p>}
           </div>
         </div>
@@ -442,6 +454,8 @@ function CalculatorResponses({
           <GoldenNumberAdminView data={data} />
         ) : slug === 'perfil-riesgo' ? (
           <RiskProfileAdminView data={data} />
+        ) : slug === 'desafio-mundial' ? (
+          <WorldCupAdminView data={data} />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             <JsonPreview title="Respuestas capturadas" value={data.input} />
@@ -819,4 +833,46 @@ function formatAmount(value: unknown, currency?: string) {
   const numeric = Number(value)
   if (!Number.isFinite(numeric)) return '—'
   return `${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(numeric)} ${currency || ''}`.trim()
+}
+
+function WorldCupAdminView({ data }: { data: any }) {
+  const participant = data?.participant || {}
+  const savings = Array.isArray(data?.savings) ? data.savings : []
+  const totalSaved = savings.reduce((acc: number, s: any) => acc + (s.amount || 0), 0)
+  const currency = savings[0]?.currency || 'COP'
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+        <div className="relative overflow-hidden rounded-3xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/80 via-mia-surface/40 to-mia-surface p-6 shadow-xl">
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-emerald-500/10 blur-3xl" />
+          <p className="relative text-xs font-black uppercase tracking-[0.28em] text-emerald-400">Total Ahorrado Desafío</p>
+          <p className="relative mt-4 whitespace-nowrap font-sans text-[clamp(1.5rem,4vw,3.1rem)] font-black leading-none tracking-[-0.07em] text-mia-cream [font-variant-numeric:tabular-nums]">
+            {formatMoney(totalSaved, currency)}
+          </p>
+          <p className="relative mt-4 max-w-xl text-sm font-medium leading-relaxed text-neutral">
+            Progreso acumulado del participante en el Reto de Ahorro del Mundial FIFA 2030.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+          <AdminResultMetric label="País registrado" value={participant.country || '—'} />
+          <AdminResultMetric label="Celular de contacto" value={participant.phone || '—'} />
+          <AdminResultMetric label="Nombre en el Reto" value={participant.displayName || '—'} />
+        </div>
+      </div>
+
+      <AdminDataTable
+        title="Aportes de Ahorro Registrados"
+        empty="El participante aún no ha registrado aportes de ahorro."
+        columns={["Fecha del aporte", "Monto aportado", "Moneda", "Fecha de creación"]}
+        rows={savings.map((s: any) => [
+          s.date ? formatDate(s.date) : '—',
+          formatAmount(s.amount, s.currency),
+          s.currency || '—',
+          s.createdAt ? formatDate(s.createdAt) : '—',
+        ])}
+      />
+    </div>
+  )
 }

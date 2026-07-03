@@ -24,6 +24,20 @@ export const useUserStore = create<UserStore>()(
       isRegistered: false,
 
       register: async (data, toolName = 'rentabilidad') => {
+        if (typeof window !== 'undefined') {
+          const utm_source = localStorage.getItem('mia_utm_source')
+          const utm_medium = localStorage.getItem('mia_utm_medium')
+          const utm_campaign = localStorage.getItem('mia_utm_campaign')
+          const utm_content = localStorage.getItem('mia_utm_content')
+          const utm_term = localStorage.getItem('mia_utm_term')
+
+          if (utm_source && !data.utm_source) data.utm_source = utm_source
+          if (utm_medium && !data.utm_medium) data.utm_medium = utm_medium
+          if (utm_campaign && !data.utm_campaign) data.utm_campaign = utm_campaign
+          if (utm_content && !data.utm_content) data.utm_content = utm_content
+          if (utm_term && !data.utm_term) data.utm_term = utm_term
+        }
+
         const profile = await userApi.register(data, toolName);
         if (profile) {
           set({ profile, isRegistered: true });

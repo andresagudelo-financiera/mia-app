@@ -35,7 +35,13 @@ function toPlainText(value: unknown, fallback = '') {
 
 function getGraphQLErrorMessage(payload: any, fallback: string) {
   const error = payload?.errors?.[0]
+  const validationErrors = error?.extensions?.validation
   const originalMessage = error?.extensions?.originalError?.message
+
+  if (validationErrors && typeof validationErrors === 'object') {
+    const firstValidation = Object.values(validationErrors).flat().find(Boolean)
+    if (firstValidation) return String(firstValidation)
+  }
 
   if (Array.isArray(originalMessage)) {
     const firstMessage = originalMessage.find(Boolean)

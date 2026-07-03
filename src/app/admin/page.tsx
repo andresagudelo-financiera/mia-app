@@ -220,6 +220,7 @@ function buildDashboardData(users: AdminUserSummary[], simulators: Simulator[]) 
   simulatorNames.set('rentabilidad', simulatorNames.get('rentabilidad') || 'Rentabilidad')
   simulatorNames.set('perfil-riesgo', simulatorNames.get('perfil-riesgo') || 'Perfil Riesgo')
   simulatorNames.set('numero-dorado', simulatorNames.get('numero-dorado') || 'Número Dorado')
+  simulatorNames.set('desafio-mundial', simulatorNames.get('desafio-mundial') || 'Reto de Ahorro Mundial')
 
   const usage = new Map<string, { users: Set<string>; eventos: number }>()
   const ensureUsage = (slug: string) => {
@@ -245,6 +246,12 @@ function buildDashboardData(users: AdminUserSummary[], simulators: Simulator[]) 
       const item = ensureUsage('rentabilidad')
       item.users.add(user.id)
       item.eventos += rentabilidadEvents
+    }
+
+    if (user.worldCupParticipant) {
+      const item = ensureUsage('desafio-mundial')
+      item.users.add(user.id)
+      item.eventos += Array.isArray(user.worldCupSavings) ? user.worldCupSavings.length : 1
     }
   })
 
