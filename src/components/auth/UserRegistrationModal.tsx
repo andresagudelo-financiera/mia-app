@@ -129,7 +129,7 @@ function getCurrentUtms() {
 }
 
 export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad', backHref = '/calculadoras', backLabel = 'Volver' }: Props) {
-  const { register, login, setInitialPassword } = useUserStore()
+  const { register, login, setInitialPassword, progressiveEntry } = useUserStore()
   const setBaseCurrency = useRentabilidadStore(s => s.setBaseCurrency)
   const [mounted, setMounted] = useState(false)
   const [step, setStep] = useState<'email' | 'login' | 'setupPassword' | 'form' | 'success'>('email')
@@ -178,20 +178,37 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
       setPasswordResetSent(false)
       
       if (step === 'email') {
-        setIsValidatingEmail(true)
-        const entry = await userApi.validateEntry(data.email, toolName)
-        setIsValidatingEmail(false)
-        
-        if (entry.requiresPasswordSetup) {
-          setIsNewUser(false)
-          setStep('setupPassword')
-        } else if (entry.exists) {
-          setIsNewUser(false)
-          setStep('login')
-        } else {
-          setIsNewUser(true)
-          setStep('form')
+        const nationalPhone = normalizeNationalPhone(data.phone || '', selectedCountry)
+        const fullPhone = `${selectedCountry.dialCode}${nationalPhone}`
+
+        if (nationalPhone.length < selectedCountry.min || nationalPhone.length > selectedCountry.max) {
+          const expectedLength =
+            selectedCountry.min === selectedCountry.max
+              ? `${selectedCountry.min} dígitos`
+              : `entre ${selectedCountry.min} y ${selectedCountry.max} dígitos`
+
+          setFieldError('phone', { message: `Ingresa un WhatsApp válido de ${selectedCountry.name}: ${expectedLength}.` })
+          return
         }
+
+        if (selectedCountry.pattern && !selectedCountry.pattern.test(nationalPhone)) {
+          setFieldError('phone', { message: selectedCountry.validationMessage || `Ingresa un WhatsApp válido de ${selectedCountry.name}.` })
+          return
+        }
+
+        setIsValidatingEmail(true)
+        await progressiveEntry({
+          email: data.email,
+          phone: fullPhone,
+          baseCurrency: data.baseCurrency || 'COP',
+          ...getCurrentUtms(),
+        }, toolName)
+        setBaseCurrency(data.baseCurrency || 'COP')
+        pushEvent('user_registered', { method: 'progressive_entry', has_phone: true })
+        trackMetaEvent('Lead', { content_name: contentName })
+        setIsNewUser(true)
+        setStep('success')
+        setTimeout(() => onClose(), 900)
         return
       }
 
@@ -362,7 +379,7 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
                 </div>
                 <h2 className="text-white font-heading font-extrabold text-2xl leading-tight">
                   {step === 'email'
-                    ? 'Ingresa para comenzar'
+                    ? 'Guarda tu resultado y entra a la calculadora'
                     : step === 'login'
                       ? 'Ingresa tu contraseña'
                       : step === 'setupPassword'
@@ -398,26 +415,70 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
               {/* Form */}
               <form onSubmit={handleSubmit(onSubmit)} className="bg-mia-card p-8 space-y-4">
                 {step === 'email' ? (
-                  /* STEP 1: EMAIL ONLY */
-                  <div>
-                    <label className="block text-xs font-semibold text-mia-cream/70 uppercase tracking-wider mb-1.5">
-                      Correo electrónico
-                    </label>
-                    <input
-                      {...formRegister('email')}
-                      type="email"
-                      placeholder="tu@email.com"
-                      autoFocus
-                      className="w-full px-4 py-3 bg-mia-surface border border-mia-border rounded-xl text-mia-cream placeholder:text-neutral/50 focus:outline-none focus:border-mf-coral focus:ring-1 focus:ring-mf-coral/30 transition-all text-sm"
-                    />
-                    {errors.email && <p className="text-loss text-xs mt-1">{errors.email.message}</p>}
-                    
+                  /* STEP 1: PROGRESSIVE ACCESS */
+                  <>
+                    <div className="rounded-2xl border border-mf-coral/20 bg-mf-coral/10 p-4">
+                      <p className="text-sm font-semibold leading-relaxed text-mia-cream">
+                        Accede rápido con tu correo y WhatsApp. Luego podrás descargar tu PDF y crear contraseña si quieres guardar historial.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-mia-cream/70 uppercase tracking-wider mb-1.5">
+                        Correo electrónico
+                      </label>
+                      <input
+                        {...formRegister('email')}
+                        type="email"
+                        placeholder="tu@email.com"
+                        autoFocus
+                        className="w-full px-4 py-3 bg-mia-surface border border-mia-border rounded-xl text-mia-cream placeholder:text-neutral/50 focus:outline-none focus:border-mf-coral focus:ring-1 focus:ring-mf-coral/30 transition-all text-sm"
+                      />
+                      {errors.email && <p className="text-loss text-xs mt-1">{errors.email.message}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-mia-cream/70 uppercase tracking-wider mb-1.5">
+                        WhatsApp
+                      </label>
+                      <div className="grid grid-cols-[132px_1fr] gap-2 sm:grid-cols-[160px_1fr]">
+                        <select
+                          value={selectedCountryCode}
+                          onChange={event => setSelectedCountryCode(event.target.value)}
+                          className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none transition-all focus:border-mf-coral focus:ring-1 focus:ring-mf-coral/30"
+                          aria-label="Indicativo del país"
+                        >
+                          {COUNTRY_DIAL_CODES.map(country => (
+                            <option key={`${country.code}-${country.dialCode}`} value={country.code}>
+                              {country.flag} {country.dialCode}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          {...formRegister('phone')}
+                          type="tel"
+                          inputMode="numeric"
+                          autoComplete="tel-national"
+                          placeholder={selectedCountry.example}
+                          onInput={event => {
+                            const input = event.currentTarget
+                            input.value = input.value.replace(/[^\d\s]/g, '')
+                          }}
+                          className="w-full px-4 py-3 bg-mia-surface border border-mia-border rounded-xl text-mia-cream placeholder:text-neutral/50 focus:outline-none focus:border-mf-coral focus:ring-1 focus:ring-mf-coral/30 transition-all text-sm"
+                        />
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-neutral/60">
+                        Te enviaremos tu resultado y acceso por WhatsApp. Sin spam.
+                      </p>
+                      {errors.phone && <p className="text-loss text-xs mt-1">{errors.phone.message}</p>}
+                    </div>
+
                     {error && (
-                      <div className="mt-4 p-3 bg-loss/10 border border-loss/20 rounded-xl">
+                      <div className="p-3 bg-loss/10 border border-loss/20 rounded-xl">
                         <p className="text-loss text-xs">{error}</p>
                       </div>
                     )}
-                  </div>
+                  </>
                 ) : step === 'login' ? (
                   /* STEP 2A: EXISTING USER PASSWORD */
                   <>
@@ -697,7 +758,7 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
                   {isSubmitting || isValidatingEmail
                     ? 'Validando...'
                     : step === 'email'
-                      ? 'Continuar'
+                      ? 'Entrar ahora'
                       : step === 'login'
                         ? 'Iniciar sesión'
                         : step === 'setupPassword'

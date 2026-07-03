@@ -185,11 +185,11 @@ export const userApi = {
 
   async register(
     data: {
-      name: string;
+      name?: string;
       email: string;
       phone?: string;
       baseCurrency?: string;
-      password: string;
+      password?: string;
       utm_source?: string | null;
       utm_medium?: string | null;
       utm_campaign?: string | null;
@@ -208,6 +208,35 @@ export const userApi = {
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
       throw new Error(payload?.error || 'No se pudo crear la cuenta.');
+    }
+
+    return normalizeUser(payload?.user);
+  },
+
+  async progressiveEntry(
+    data: {
+      name?: string;
+      email: string;
+      phone: string;
+      baseCurrency?: string;
+      utm_source?: string | null;
+      utm_medium?: string | null;
+      utm_campaign?: string | null;
+      utm_content?: string | null;
+      utm_term?: string | null;
+    },
+    toolName = 'rentabilidad',
+  ) {
+    const response = await fetch('/api/users/progressive-entry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, toolName }),
+      cache: 'no-store',
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || 'No pudimos darte acceso a la calculadora.');
     }
 
     return normalizeUser(payload?.user);

@@ -85,12 +85,16 @@ export type UserProfile = {
 }
 
 export type RegisterInput = {
-  name: string
+  name?: string
   email: string
   phone: string
   baseCurrency: string
-  password: string
+  password?: string
   utm_source?: string | null
+  utm_medium?: string | null
+  utm_campaign?: string | null
+  utm_content?: string | null
+  utm_term?: string | null
 }
 
 export type RentabilidadStoreData = {
