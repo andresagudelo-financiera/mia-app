@@ -77,28 +77,56 @@ function formatGhlDate(value?: string) {
   return new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium', timeStyle: 'short' }).format(date)
 }
 
+function leadCreatedDate(contact: GhlContact) {
+  return contact.dateAdded || contact.createdAt || contact.opportunity?.createdAt || contact.lastActivity || contact.opportunity?.updatedAt || ''
+}
+
+function parseDateBoundary(value: string, boundary: 'start' | 'end') {
+  if (!value) return null
+  const date = new Date(`${value}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function matchesDateRange(contact: GhlContact, fromDate: string, toDate: string) {
+  if (!fromDate && !toDate) return true
+  const rawDate = leadCreatedDate(contact)
+  if (!rawDate) return false
+  const date = new Date(rawDate)
+  if (Number.isNaN(date.getTime())) return false
+  const from = parseDateBoundary(fromDate, 'start')
+  const to = parseDateBoundary(toDate, 'end')
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
+
 export default function GhlAssignedLeadsPanel() {
   const [contacts, setContacts] = useState<GhlContact[]>([])
   const [query, setQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('all')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [meta, setMeta] = useState<GhlLeadsResponse['meta'] | null>(null)
 
   const endpoint = useMemo(() => {
     const params = new URLSearchParams({ page: '1', pageLimit: '100' })
+    if (fromDate) params.set('fromDate', fromDate)
+    if (toDate) params.set('toDate', toDate)
     return `/api/admin/ghl/leads?${params.toString()}`
-  }, [])
+  }, [fromDate, toDate])
 
   const visibleContacts = useMemo(() => {
     const normalized = query.trim().toLowerCase()
     return contacts.filter(contact => {
       const matchesSource = sourceFilter === 'all' || String(contact.source || '').toLowerCase() === sourceFilter.toLowerCase()
-      if (!normalized) return matchesSource
+      const matchesDate = matchesDateRange(contact, fromDate, toDate)
+      if (!normalized) return matchesSource && matchesDate
       const matchesQuery = [contactName(contact), contact.email, contact.phone, contact.source, contact.opportunity?.status].some(value => String(value || '').toLowerCase().includes(normalized))
-      return matchesQuery && matchesSource
+      return matchesQuery && matchesSource && matchesDate
     })
-  }, [contacts, query, sourceFilter])
+  }, [contacts, fromDate, query, sourceFilter, toDate])
 
   const sourceOptions = useMemo(() => Array.from(new Set(contacts.map(contact => String(contact.source || '').trim()).filter(Boolean))).sort(), [contacts])
 
@@ -138,11 +166,29 @@ export default function GhlAssignedLeadsPanel() {
           <h3 className="font-heading text-2xl font-bold text-mia-cream">Leads asignados en GoHighLevel</h3>
           <p className="text-sm text-neutral">Solo se consultan los contactos donde GHL asignó el lead a tu usuario Money Strategist.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(150px,190px)_minmax(140px,170px)_minmax(140px,170px)_minmax(260px,1fr)_auto] lg:items-end">
           <select value={sourceFilter} onChange={event => setSourceFilter(event.target.value)} className="rounded-xl border border-mia-border bg-mia-surface px-4 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral">
             <option value="all">Todas las fuentes</option>
             {sourceOptions.map(source => <option key={source} value={source}>{source}</option>)}
           </select>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-neutral">Desde</span>
+            <input
+              type="date"
+              value={fromDate}
+              onChange={event => setFromDate(event.target.value)}
+              className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.16em] text-neutral">Hasta</span>
+            <input
+              type="date"
+              value={toDate}
+              onChange={event => setToDate(event.target.value)}
+              className="w-full rounded-xl border border-mia-border bg-mia-surface px-3 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral"
+            />
+          </label>
           <label className="relative min-w-[260px]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral" />
             <input
@@ -152,15 +198,29 @@ export default function GhlAssignedLeadsPanel() {
               className="w-full rounded-xl border border-mia-border bg-mia-surface px-10 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral"
             />
           </label>
-          <button
-            type="button"
-            onClick={loadLeads}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-mf-coral/30 bg-mf-coral/10 px-4 py-3 text-xs font-bold text-mf-coral transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            Actualizar
-          </button>
+          <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+            {(fromDate || toDate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFromDate('')
+                  setToDate('')
+                }}
+                className="inline-flex items-center justify-center rounded-xl border border-mia-border px-3 py-3 text-xs font-bold text-neutral transition-opacity hover:opacity-80"
+              >
+                Limpiar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={loadLeads}
+              disabled={loading}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-mf-coral/30 bg-mf-coral/10 px-4 py-3 text-xs font-bold text-mf-coral transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Actualizar
+            </button>
+          </div>
         </div>
       </div>
 
@@ -209,7 +269,7 @@ export default function GhlAssignedLeadsPanel() {
                       <td className="px-4 py-4 text-neutral">
                         <StatusPill status={contact.opportunity?.status} />
                       </td>
-                      <td className="px-4 py-4 text-neutral">{formatGhlDate(contact.dateAdded || contact.createdAt || contact.lastActivity)}</td>
+                      <td className="px-4 py-4 text-neutral">{formatGhlDate(leadCreatedDate(contact))}</td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-2">
                           {contact.miaUserId ? (
@@ -243,7 +303,7 @@ export default function GhlAssignedLeadsPanel() {
       )}
 
       {!error && meta && (
-        <p className="mt-3 text-xs text-neutral">Total reportado por GHL: {meta.total ?? contacts.length}. Mostrando: {visibleContacts.length}. Fuente: {meta.source || '—'}.</p>
+        <p className="mt-3 text-xs text-neutral">Total reportado por GHL: {meta.total ?? contacts.length}. Mostrando: {visibleContacts.length}. Fuente: {meta.source || '—'}. Filtro de fechas: {fromDate || 'inicio'} → {toDate || 'hoy'}.</p>
       )}
 
     </section>

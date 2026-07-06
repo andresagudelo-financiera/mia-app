@@ -106,26 +106,56 @@ function validatePassword(password?: string) {
 }
 
 
+const TRACKING_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'utm_id',
+  'gclid',
+  'fbclid',
+  'ttclid',
+  'msclkid',
+] as const
+
 function getCurrentUtms() {
-  if (typeof window === 'undefined') {
-    return {
-      utm_source: 'direct',
-      utm_medium: '',
-      utm_campaign: '',
-      utm_content: '',
-      utm_term: '',
-    }
+  const fallback = {
+    utm_source: 'direct',
+    utm_medium: '',
+    utm_campaign: '',
+    utm_content: '',
+    utm_term: '',
+    utm_id: '',
+    gclid: '',
+    fbclid: '',
+    ttclid: '',
+    msclkid: '',
+    referrer: '',
+    landing_page: '',
   }
+
+  if (typeof window === 'undefined') return fallback
 
   const params = new URLSearchParams(window.location.search)
+  const output = { ...fallback }
 
-  return {
-    utm_source: params.get('utm_source') || params.get('utmSource') || 'direct',
-    utm_medium: params.get('utm_medium') || params.get('utmMedium') || '',
-    utm_campaign: params.get('utm_campaign') || params.get('utmCampaign') || '',
-    utm_content: params.get('utm_content') || params.get('utmContent') || '',
-    utm_term: params.get('utm_term') || params.get('utmTerm') || '',
-  }
+  TRACKING_KEYS.forEach(key => {
+    const camelKey = key.replace(/_([a-z])/g, (_, char) => String(char).toUpperCase())
+    const currentValue = params.get(key) || params.get(camelKey)
+    const storedValue = localStorage.getItem(`mia_${key}`)
+    ;(output as Record<string, string>)[key] = currentValue || storedValue || ''
+    if (currentValue) localStorage.setItem(`mia_${key}`, currentValue)
+  })
+
+  output.utm_source = output.utm_source || 'direct'
+  output.referrer = document.referrer || localStorage.getItem('mia_referrer') || ''
+  output.landing_page = window.location.href
+
+  if (document.referrer) localStorage.setItem('mia_referrer', document.referrer)
+  localStorage.setItem('mia_landing_page', window.location.href)
+
+  return output
 }
 
 export default function UserRegistrationModal({ onClose, toolName = 'rentabilidad', contentName = 'calculadora_rentabilidad', backHref = '/calculadoras', backLabel = 'Volver' }: Props) {
