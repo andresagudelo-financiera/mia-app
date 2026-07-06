@@ -462,17 +462,12 @@ function GoldenJourney({
           </button>
           <button
             type="button"
-            disabled
-            aria-disabled="true"
-            title="Próximamente 7 de julio"
-            className="cursor-not-allowed rounded-2xl px-3 py-3 text-left text-[#8B8172] opacity-75 transition sm:px-5 sm:py-4"
+            onClick={() => setActiveTab('plan')}
+            className={`rounded-2xl px-3 py-3 text-left transition sm:px-5 sm:py-4 ${activeTab === 'plan' ? 'bg-white text-[#171717] shadow-sm' : 'text-[#6D6470] hover:bg-white/55'}`}
           >
-            <span className="flex flex-wrap items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#B7791F] sm:gap-2 sm:text-xs sm:tracking-[0.18em]">
+            <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#B7791F] sm:gap-2 sm:text-xs sm:tracking-[0.18em]">
               <Sparkles className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
-              <span>Cómo alcanzarlo</span>
-              <span className="rounded-full border border-[#F4B23B]/50 bg-[#FFF4C7] px-2 py-0.5 text-[9px] font-black normal-case tracking-normal text-[#8A6100] sm:text-[10px]">
-                Próximamente 7 de julio
-              </span>
+              Cómo alcanzarlo
             </span>
             <span className="mt-1 hidden text-sm font-semibold sm:block">Juega con aportes, capital y rentabilidad.</span>
           </button>
