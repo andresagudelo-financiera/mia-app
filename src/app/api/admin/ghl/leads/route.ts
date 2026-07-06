@@ -37,6 +37,29 @@ function parseAllowedSources(value?: string | null) {
     .filter(Boolean)
 }
 
+function parseDateBoundary(value: string | null, boundary: 'start' | 'end') {
+  if (!value) return null
+  const date = new Date(`${value}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}`)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function getOpportunityDate(opportunity: any) {
+  return opportunity?.createdAt || opportunity?.lastStageChangeAt || opportunity?.updatedAt || opportunity?.lastStatusChangeAt || null
+}
+
+function opportunityMatchesDateRange(opportunity: any, fromDate: string | null, toDate: string | null) {
+  if (!fromDate && !toDate) return true
+  const rawDate = getOpportunityDate(opportunity)
+  if (!rawDate) return false
+  const date = new Date(rawDate)
+  if (Number.isNaN(date.getTime())) return false
+  const from = parseDateBoundary(fromDate, 'start')
+  const to = parseDateBoundary(toDate, 'end')
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
+
 
 async function findMiaUsersByEmails(emails: string[], adminToken?: string | null) {
   const normalizedEmails = Array.from(new Set(emails.map(email => email.trim().toLowerCase()).filter(Boolean)))
@@ -190,6 +213,8 @@ export async function GET(request: NextRequest) {
     }
 
     const requestedSource = searchParams.get('source')
+    const fromDate = searchParams.get('fromDate')
+    const toDate = searchParams.get('toDate')
     const allowedSources = parseAllowedSources(process.env.GHL_ALLOWED_SIMULATOR_SOURCES).length > 0
       ? parseAllowedSources(process.env.GHL_ALLOWED_SIMULATOR_SOURCES)
       : DEFAULT_SIMULATOR_SOURCES
@@ -205,7 +230,10 @@ export async function GET(request: NextRequest) {
     }, config)
 
     const opportunities = getOpportunitiesFromPayload(payload)
-    const filteredOpportunities = opportunities.filter((opportunity: any) => effectiveSources.includes(normalizeSource(opportunity.source)))
+    const filteredOpportunities = opportunities.filter((opportunity: any) => (
+      effectiveSources.includes(normalizeSource(opportunity.source)) &&
+      opportunityMatchesDateRange(opportunity, fromDate, toDate)
+    ))
     const emails = filteredOpportunities.map((opportunity: any) => opportunity.contact?.email).filter(Boolean)
     const miaUsersByEmail = await findMiaUsersByEmails(emails, String(token.adminToken || ''))
     const contacts = filteredOpportunities.map((opportunity: any) => {
@@ -220,6 +248,8 @@ export async function GET(request: NextRequest) {
         assignedTo,
         locationId,
         source: source || effectiveSources.join(','),
+        fromDate: fromDate || null,
+        toDate: toDate || null,
         pageLimit: Number(searchParams.get('pageLimit') || 100),
         total: contacts.length,
         rawTotal: payload?.meta?.total || opportunities.length,

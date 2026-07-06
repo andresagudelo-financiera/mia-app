@@ -95,6 +95,13 @@ export type RegisterInput = {
   utm_campaign?: string | null
   utm_content?: string | null
   utm_term?: string | null
+  utm_id?: string | null
+  gclid?: string | null
+  fbclid?: string | null
+  ttclid?: string | null
+  msclkid?: string | null
+  referrer?: string | null
+  landing_page?: string | null
 }
 
 export type RentabilidadStoreData = {

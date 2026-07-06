@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const MIA_API_URL = process.env.MIA_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/graphql'
-const GHL_NEW_LEAD_WEBHOOK_URL = process.env.GHL_NEW_LEAD_WEBHOOK_URL || ''
+const N8N_LEAD_WEBHOOK_URL = process.env.N8N_LEAD_WEBHOOK_URL || process.env.MIA_N8N_LEAD_WEBHOOK_URL || ''
 
 const REGISTER_USER = `
   mutation RegisterUser($name: String!, $email: String!, $phone: String, $baseCurrency: String, $password: String!, $toolName: String) {
@@ -33,10 +33,53 @@ function generateInitialPassword(email: string): string {
   return `dm2030_${base}_${suffix}`
 }
 
-async function sendToGhl(payload: Record<string, unknown>) {
-  if (!GHL_NEW_LEAD_WEBHOOK_URL) return
+function toPlainText(value: unknown, fallback = '') {
+  if (value === null || value === undefined) return fallback
+  if (typeof value === 'string') return value.trim() || fallback
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
+
+function collectLeadAttribution(body: any, request: Request) {
+  const attribution = body?.attribution && typeof body.attribution === 'object' ? body.attribution : {}
+  const referer = request.headers.get('referer') || ''
+  let refererParams: URLSearchParams | null = null
+
   try {
-    await fetch(GHL_NEW_LEAD_WEBHOOK_URL, {
+    refererParams = referer ? new URL(referer).searchParams : null
+  } catch {
+    refererParams = null
+  }
+
+  const pick = (...keys: string[]) => {
+    for (const key of keys) {
+      const value = body?.[key] ?? attribution?.[key] ?? refererParams?.get(key)
+      const text = toPlainText(value)
+      if (text) return text
+    }
+    return ''
+  }
+
+  return {
+    utm_source: pick('utm_source', 'utmSource') || 'desafio_mundial',
+    utm_medium: pick('utm_medium', 'utmMedium'),
+    utm_campaign: pick('utm_campaign', 'utmCampaign'),
+    utm_content: pick('utm_content', 'utmContent'),
+    utm_term: pick('utm_term', 'utmTerm'),
+    utm_id: pick('utm_id', 'utmId'),
+    gclid: pick('gclid'),
+    fbclid: pick('fbclid'),
+    ttclid: pick('ttclid'),
+    msclkid: pick('msclkid'),
+    referrer: toPlainText(body?.referrer ?? attribution?.referrer ?? request.headers.get('referer')),
+    landing_page: toPlainText(body?.landing_page ?? body?.landingPage ?? attribution?.landingPage ?? referer),
+  }
+}
+
+async function sendToN8n(payload: Record<string, unknown>) {
+  if (!N8N_LEAD_WEBHOOK_URL) return
+  try {
+    await fetch(N8N_LEAD_WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -55,6 +98,7 @@ export async function POST(request: Request) {
     const phone = String(body?.telefono || '').trim() || null
     const pais = String(body?.pais || '').trim()
     const bandera = String(body?.bandera || '').trim()
+    const attribution = collectLeadAttribution(body, request)
 
     if (!name || !email || !email.includes('@')) {
       return NextResponse.json({ error: 'Datos incompletos.' }, { status: 400 })
@@ -88,7 +132,7 @@ export async function POST(request: Request) {
       userId = fetchPayload?.data?.user?.id ?? null
     }
 
-    await sendToGhl({
+    await sendToN8n({
       miaUserId: userId,
       name,
       email,
@@ -98,7 +142,7 @@ export async function POST(request: Request) {
       simulator: 'desafio_mundial',
       toolName: 'desafio_mundial',
       source: 'desafio_mundial_signup',
-      utm_source: 'desafio_mundial',
+      ...attribution,
     })
 
     return NextResponse.json({ ok: true, userId })

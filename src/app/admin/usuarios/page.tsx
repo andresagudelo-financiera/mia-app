@@ -4,7 +4,7 @@
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { useEffect, useMemo, useState } from 'react'
-import { Download, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Download, Loader2, Plus, Search, ShieldCheck } from 'lucide-react'
 import { adminApi } from '@/services/api/admin.api'
 import type { AdminUserDetail, AdminUserSummary, Simulator, SimulatorAccessType, UserRole, UserStatus } from '@/types/rentabilidad'
 import StatusBadge from '@/components/admin/StatusBadge'
@@ -27,10 +27,15 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<UserRole | 'all'>('all')
   const [status, setStatus] = useState<UserStatus | 'all'>('all')
   const [simulatorFilter, setSimulatorFilter] = useState('all')
+  const [registeredFrom, setRegisteredFrom] = useState('')
+  const [registeredTo, setRegisteredTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exporting, setExporting] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showBulkAccess, setShowBulkAccess] = useState(false)
+  const [pageSize, setPageSize] = useState(10)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     let active = true
@@ -74,9 +79,28 @@ export default function AdminUsersPage() {
       const matchesRole = role === 'all' || (user.role || 'user') === role
       const matchesStatus = status === 'all' || (user.status || 'active') === status
       const matchesSimulator = simulatorFilter === 'all' || getUserSimulatorSlugs(user).includes(simulatorFilter)
-      return matchesRole && matchesStatus && matchesSimulator
+      const matchesRegistrationDate = isDateWithinRange(user.registeredAt, registeredFrom, registeredTo)
+      return matchesRole && matchesStatus && matchesSimulator && matchesRegistrationDate
     })
-  ), [role, simulatorFilter, status, users])
+  ), [registeredFrom, registeredTo, role, simulatorFilter, status, users])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [registeredFrom, registeredTo, role, search, simulatorFilter, status])
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredUsers.length / pageSize)), [filteredUsers.length, pageSize])
+
+  useEffect(() => {
+    setCurrentPage(page => Math.min(Math.max(page, 1), totalPages))
+  }, [totalPages])
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize
+    return filteredUsers.slice(start, start + pageSize)
+  }, [currentPage, filteredUsers, pageSize])
+
+  const paginationStart = filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const paginationEnd = Math.min(currentPage * pageSize, filteredUsers.length)
 
   const totals = useMemo(() => ({
     admins: filteredUsers.filter(u => u.role === 'admin').length,
@@ -138,9 +162,9 @@ export default function AdminUsersPage() {
     }
   }
 
-  const selectedFilteredUserIds = useMemo(
-    () => filteredUsers.filter(user => selectedUserIds.includes(user.id)).map(user => user.id),
-    [filteredUsers, selectedUserIds],
+  const selectedVisibleUserIds = useMemo(
+    () => paginatedUsers.filter(user => selectedUserIds.includes(user.id)).map(user => user.id),
+    [paginatedUsers, selectedUserIds],
   )
 
   const toggleUserSelection = (userId: string) => {
@@ -149,12 +173,12 @@ export default function AdminUsersPage() {
       : [...current, userId])
   }
 
-  const toggleAllFilteredUsers = () => {
-    const filteredIds = filteredUsers.map(user => user.id)
-    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedUserIds.includes(id))
+  const toggleAllVisibleUsers = () => {
+    const visibleIds = paginatedUsers.map(user => user.id)
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedUserIds.includes(id))
     setSelectedUserIds(current => allSelected
-      ? current.filter(id => !filteredIds.includes(id))
-      : Array.from(new Set([...current, ...filteredIds])))
+      ? current.filter(id => !visibleIds.includes(id))
+      : Array.from(new Set([...current, ...visibleIds])))
   }
 
   const toggleSimulatorSelection = (slug: string) => {
@@ -207,9 +231,14 @@ export default function AdminUsersPage() {
   const downloadExcelReport = async () => {
     try {
       setExporting(true)
-      const allUsers = await adminApi.listUsers({ role: 'all', status: 'all' })
+      const usersToExport = filteredUsers
+      if (usersToExport.length === 0) {
+        alert('No hay usuarios para descargar con los filtros actuales.')
+        return
+      }
+
       const details = await Promise.all(
-        (allUsers || []).map(async user => {
+        usersToExport.map(async user => {
           try {
             return (await adminApi.getUserDetail(user.id)) || user
           } catch {
@@ -218,12 +247,26 @@ export default function AdminUsersPage() {
         }),
       )
 
-      const workbook = buildUsersWorkbook(details as AdminUserDetail[])
-      const blob = new Blob([workbook], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const reportRows = buildUsersReportRows(details as AdminUserDetail[], {
+        search,
+        role,
+        status,
+        simulator: simulatorFilter,
+        registeredFrom,
+        registeredTo,
+        exportedAt: new Date().toISOString(),
+      })
+      const XLSX = await import('xlsx')
+      const workbook = XLSX.utils.book_new()
+      const worksheet = XLSX.utils.aoa_to_sheet(reportRows)
+      worksheet['!cols'] = reportRows[reportRows.length - 1]?.map(() => ({ wch: 24 })) || []
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Usuarios')
+      const report = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+      const blob = new Blob([report], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `reporte-usuarios-mia-${new Date().toISOString().slice(0, 10)}.xls`
+      link.download = `usuarios-filtrados-mia-${new Date().toISOString().slice(0, 10)}.xlsx`
       document.body.appendChild(link)
       link.click()
       link.remove()
@@ -279,8 +322,8 @@ export default function AdminUsersPage() {
 
       {isAdmin && (<>
       <div className="glass rounded-2xl border border-mia-border p-4">
-        <div className="grid gap-3 md:grid-cols-[1fr_180px_180px_220px]">
-          <label className="relative">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.4fr)_170px_170px_210px_155px_155px]">
+          <label className="relative md:col-span-2 xl:col-span-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral" />
             <input
               value={search}
@@ -310,18 +353,60 @@ export default function AdminUsersPage() {
               <option key={option.slug} value={option.slug}>{option.label}</option>
             ))}
           </select>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral">Desde</span>
+            <input
+              type="date"
+              value={registeredFrom}
+              onChange={e => setRegisteredFrom(e.target.value)}
+              className="rounded-xl border border-mia-border bg-mia-surface px-4 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral">Hasta</span>
+            <input
+              type="date"
+              value={registeredTo}
+              min={registeredFrom || undefined}
+              onChange={e => setRegisteredTo(e.target.value)}
+              className="rounded-xl border border-mia-border bg-mia-surface px-4 py-3 text-sm text-mia-cream outline-none focus:border-mf-coral"
+            />
+          </label>
         </div>
+        {(registeredFrom || registeredTo) && (
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-mf-coral/20 bg-mf-coral/10 px-3 py-2 text-xs text-neutral">
+            <span>Filtrando registros {registeredFrom ? `desde ${registeredFrom}` : ''} {registeredTo ? `hasta ${registeredTo}` : ''}</span>
+            <button
+              type="button"
+              onClick={() => { setRegisteredFrom(''); setRegisteredTo('') }}
+              className="font-bold text-mf-coral hover:opacity-80"
+            >
+              Limpiar fechas
+            </button>
+          </div>
+        )}
       </div>
 
       {isAdmin && (
-      <div className="glass rounded-2xl border border-mia-border p-4">
-        <div className="mb-4 flex flex-col gap-1">
-          <h3 className="font-heading text-lg font-bold text-mia-cream">Accesos por usuario y calculadora</h3>
-          <p className="text-xs text-neutral">
-            Selecciona uno o varios usuarios, una o varias calculadoras, y activa o desactiva accesos en lote.
-          </p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-[1fr_1fr_auto]">
+      <div className="glass overflow-hidden rounded-2xl border border-mia-border">
+        <button
+          type="button"
+          onClick={() => setShowBulkAccess(value => !value)}
+          aria-expanded={showBulkAccess}
+          aria-controls="bulk-access-panel"
+          className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-mia-surface/40"
+        >
+          <span>
+            <span className="block font-heading text-lg font-bold text-mia-cream">Accesos por usuario y calculadora</span>
+            <span className="mt-1 block text-xs text-neutral">Abre este panel solo cuando quieras asignar o quitar accesos en lote.</span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2 rounded-full border border-mia-border bg-mia-surface px-3 py-2 text-xs font-bold text-neutral">
+            {showBulkAccess ? 'Ocultar' : 'Configurar'}
+            <ChevronDown className={`h-4 w-4 transition-transform ${showBulkAccess ? 'rotate-180' : ''}`} />
+          </span>
+        </button>
+        {showBulkAccess && (
+        <div id="bulk-access-panel" className="grid gap-4 border-t border-mia-border p-4 lg:grid-cols-[1fr_1fr_auto]"> 
           <div>
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral">Calculadoras</p>
             <div className="flex flex-wrap gap-2">
@@ -376,6 +461,7 @@ export default function AdminUsersPage() {
             </button>
           </div>
         </div>
+        )}
       </div>
       )}
 
@@ -389,7 +475,7 @@ export default function AdminUsersPage() {
               <tr>
                 {isAdmin && (
                   <th className="px-4 py-3 text-left">
-                    <input type="checkbox" checked={filteredUsers.length > 0 && filteredUsers.every(user => selectedUserIds.includes(user.id))} onChange={toggleAllFilteredUsers} aria-label="Seleccionar usuarios visibles" />
+                    <input type="checkbox" checked={paginatedUsers.length > 0 && selectedVisibleUserIds.length === paginatedUsers.length} onChange={toggleAllVisibleUsers} aria-label="Seleccionar usuarios visibles" />
                   </th>
                 )}
                 <th className="px-4 py-3 text-left">Usuario</th>
@@ -402,7 +488,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-mia-border">
-              {filteredUsers.map(user => (
+              {paginatedUsers.map(user => (
                 <tr key={user.id} className="hover:bg-mia-surface/30">
                   {isAdmin && (
                     <td className="px-4 py-4">
@@ -471,6 +557,46 @@ export default function AdminUsersPage() {
             </tbody>
           </table>
         </div>
+        {filteredUsers.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-mia-border px-4 py-3 text-sm text-neutral sm:flex-row sm:items-center sm:justify-between">
+            <p>Mostrando {paginationStart}-{paginationEnd} de {filteredUsers.length} usuarios</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-neutral">
+                Filas
+                <select
+                  value={pageSize}
+                  onChange={event => { setPageSize(Number(event.target.value)); setCurrentPage(1) }}
+                  className="rounded-lg border border-mia-border bg-mia-surface px-2 py-2 text-sm normal-case tracking-normal text-mia-cream outline-none focus:border-mf-coral"
+                >
+                  <option value={10}>10</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+                disabled={currentPage <= 1}
+                className="inline-flex items-center gap-1 rounded-lg border border-mia-border bg-mia-surface px-3 py-2 text-xs font-bold text-mia-cream disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </button>
+              <span className="rounded-lg border border-mia-border px-3 py-2 text-xs font-bold text-mia-cream">
+                {currentPage} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+                disabled={currentPage >= totalPages}
+                className="inline-flex items-center gap-1 rounded-lg border border-mia-border bg-mia-surface px-3 py-2 text-xs font-bold text-mia-cream disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       </>)}
       {isAdmin && showCreateModal && (
@@ -487,172 +613,77 @@ export default function AdminUsersPage() {
 }
 
 
-type SheetDefinition = {
-  name: string
-  rows: Array<Array<string | number | boolean | null | undefined>>
+type UsersReportFilters = {
+  search: string
+  role: UserRole | 'all'
+  status: UserStatus | 'all'
+  simulator: string
+  registeredFrom: string
+  registeredTo: string
+  exportedAt: string
 }
 
-function buildUsersWorkbook(users: AdminUserDetail[]) {
-  const sheets: SheetDefinition[] = [
-    {
-      name: 'Usuarios',
-      rows: [
-        ['ID', 'Nombre', 'Email', 'Teléfono', 'Rol', 'Estado', 'Moneda base', 'Registro', 'Último acceso', 'Onboarding', 'Inversiones', 'Flujos', 'Cortes', 'PDFs'],
-        ...users.map(user => {
-          const rentabilidad = user.rentabilidadData
-          return [
-            user.id,
-            user.name,
-            user.email,
-            user.phone,
-            user.role || 'user',
-            user.status || 'active',
-            user.baseCurrency,
-            user.registeredAt,
-            user.lastSeenAt,
-            user.hasCompletedOnboarding ? 'Completo' : 'Pendiente',
-            rentabilidad?.investments?.length ?? user.investmentCount ?? 0,
-            rentabilidad?.transactions?.length ?? user.transactionCount ?? 0,
-            rentabilidad?.snapshots?.length ?? user.snapshotCount ?? 0,
-            user.pdfDownloadCount ?? 0,
-          ]
-        }),
-      ],
-    },
-    {
-      name: 'Accesos',
-      rows: [
-        ['Usuario ID', 'Nombre', 'Email', 'Simulador', 'Tipo acceso', 'Estado', 'Expira', 'Uso'],
-        ...users.flatMap(user => (user.accesses || []).map(access => [
-          user.id,
-          user.name,
-          user.email,
-          access.simulatorName || access.toolName || access.simulatorSlug || access.simulatorId || 'Simulador',
-          access.accessType,
-          access.status,
-          access.expiresAt || '',
-          access.notes || '',
-        ])),
-      ],
-    },
-    {
-      name: 'Configuracion',
-      rows: [
-        ['Usuario ID', 'Email', 'Calculadora', 'Moneda base', 'Pilares', 'Entidades', 'Monedas', 'Última actualización'],
-        ...users.map(user => {
-          const rentabilidad = user.rentabilidadData
-          return [
-            user.id,
-            user.email,
-            'rentabilidad',
-            rentabilidad?.config?.baseCurrency || user.baseCurrency || '',
-            joinValues(rentabilidad?.config?.pillars),
-            joinValues(rentabilidad?.config?.entities),
-            joinValues(rentabilidad?.config?.currencies),
-            rentabilidad?.lastUpdated || '',
-          ]
-        }),
-      ],
-    },
-    {
-      name: 'Inversiones',
-      rows: [
-        ['Usuario ID', 'Email', 'Calculadora', 'Inversión ID', 'Nombre', 'Pilar', 'Entidad', 'Moneda', 'Monto', 'Creación'],
-        ...users.flatMap(user => (user.rentabilidadData?.investments || []).map((investment: any) => [
-          user.id,
-          user.email,
-          'rentabilidad',
-          investment.id,
-          investment.name,
-          investment.pilar,
-          investment.entity,
-          investment.currency,
-          investment.amount ?? 0,
-          investment.createdAt,
-        ])),
-      ],
-    },
-    {
-      name: 'Flujos',
-      rows: [
-        ['Usuario ID', 'Email', 'Calculadora', 'Flujo ID', 'Fecha', 'Inversión', 'Entidad', 'Moneda', 'Monto local', 'TRM', 'Nota', 'Tipo'],
-        ...users.flatMap(user => (user.rentabilidadData?.transactions || []).map((transaction: any) => [
-          user.id,
-          user.email,
-          'rentabilidad',
-          transaction.id,
-          transaction.date,
-          transaction.investmentName,
-          transaction.entity,
-          transaction.currency,
-          transaction.amountLocal ?? transaction.amount ?? 0,
-          transaction.trm ?? '',
-          transaction.note || transaction.description || '',
-          transaction.type || 'investment_flow',
-        ])),
-      ],
-    },
-    {
-      name: 'Cortes',
-      rows: [
-        ['Usuario ID', 'Email', 'Calculadora', 'Corte ID', 'Fecha corte', 'Inversión', 'Entidad', 'Moneda', 'Valor local', 'Valor USD', 'TRM corte'],
-        ...users.flatMap(user => (user.rentabilidadData?.snapshots || []).map((snapshot: any) => [
-          user.id,
-          user.email,
-          'rentabilidad',
-          snapshot.id,
-          snapshot.cutDate || snapshot.date,
-          snapshot.investmentName,
-          snapshot.entity,
-          snapshot.currency || user.rentabilidadData?.config?.baseCurrency || user.baseCurrency,
-          snapshot.valueLocal ?? snapshot.totalValue ?? '',
-          snapshot.valueUSD ?? '',
-          snapshot.trmCut ?? '',
-        ])),
-      ],
-    },
+function buildUsersReportRows(users: AdminUserDetail[], filters?: UsersReportFilters) {
+  return [
+    ['Reporte', 'Usuarios MIA filtrados'],
+    ['Fecha descarga', filters?.exportedAt || new Date().toISOString()],
+    ['Usuarios exportados', users.length],
+    ['Búsqueda', filters?.search || 'Todos'],
+    ['Rol', filters?.role || 'all'],
+    ['Estado', filters?.status || 'all'],
+    ['Calculadora', filters?.simulator || 'all'],
+    ['Registro desde', filters?.registeredFrom || 'Sin filtro'],
+    ['Registro hasta', filters?.registeredTo || 'Sin filtro'],
+    [],
+    ['ID', 'Nombre', 'Email', 'Teléfono', 'Rol', 'Estado', 'Moneda base', 'Registro', 'Último acceso', 'Onboarding', 'Inversiones', 'Flujos', 'Cortes', 'PDFs', 'Simuladores', 'Accesos'],
+    ...users.map(user => {
+      const rentabilidad = user.rentabilidadData
+      return [
+        user.id,
+        user.name,
+        user.email,
+        user.phone,
+        user.role || 'user',
+        user.status || 'active',
+        user.baseCurrency,
+        user.registeredAt,
+        user.lastSeenAt,
+        user.hasCompletedOnboarding ? 'Completo' : 'Pendiente',
+        rentabilidad?.investments?.length ?? user.investmentCount ?? 0,
+        rentabilidad?.transactions?.length ?? user.transactionCount ?? 0,
+        rentabilidad?.snapshots?.length ?? user.snapshotCount ?? 0,
+        user.pdfDownloadCount ?? 0,
+        getUserSimulatorBadges(user).map(simulator => simulator.label).join(', '),
+        formatAccessesForCsv(user),
+      ]
+    }),
   ]
-
-  return `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- <Styles>
-  <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#222222" ss:Pattern="Solid"/><Font ss:Color="#FFFFFF" ss:Bold="1"/></Style>
- </Styles>
- ${sheets.map(sheetToXml).join('\n')}
-</Workbook>`
 }
 
-function sheetToXml(sheet: SheetDefinition) {
-  return `<Worksheet ss:Name="${escapeXml(sheet.name.slice(0, 31))}"><Table>${sheet.rows.map((row, index) => rowToXml(row, index === 0)).join('')}</Table></Worksheet>`
+function formatAccessesForCsv(user: AdminUserDetail) {
+  return (user.accesses || [])
+    .map(access => `${access.simulatorName || access.toolName || access.simulatorSlug || access.simulatorId || 'Simulador'} (${access.accessType}/${access.status}${access.expiresAt ? ` expira ${access.expiresAt}` : ''})`)
+    .join(' | ')
 }
 
-function rowToXml(row: Array<string | number | boolean | null | undefined>, isHeader: boolean) {
-  return `<Row>${row.map(value => cellToXml(value, isHeader)).join('')}</Row>`
-}
+function isDateWithinRange(value: string | null | undefined, from: string, to: string) {
+  if (!from && !to) return true
+  if (!value) return false
 
-function cellToXml(value: string | number | boolean | null | undefined, isHeader: boolean) {
-  const isNumber = typeof value === 'number' && Number.isFinite(value)
-  const type = isNumber ? 'Number' : 'String'
-  const content = isNumber ? String(value) : escapeXml(value === null || value === undefined ? '' : String(value))
-  return `<Cell${isHeader ? ' ss:StyleID="Header"' : ''}><Data ss:Type="${type}">${content}</Data></Cell>`
-}
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return false
 
-function joinValues(value: unknown) {
-  return Array.isArray(value) ? value.filter(Boolean).map(String).join(', ') : ''
-}
+  if (from) {
+    const fromTimestamp = new Date(`${from}T00:00:00`).getTime()
+    if (Number.isFinite(fromTimestamp) && timestamp < fromTimestamp) return false
+  }
 
-function escapeXml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
+  if (to) {
+    const toTimestamp = new Date(`${to}T23:59:59.999`).getTime()
+    if (Number.isFinite(toTimestamp) && timestamp > toTimestamp) return false
+  }
+
+  return true
 }
 
 
