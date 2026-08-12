@@ -26,6 +26,9 @@ const UI_METADATA: Record<string, any> = {
     iconBg: 'bg-mf-orange/10',
     iconColor: 'text-mf-orange',
   },
+  'numero-dorado-v1': {
+    icon: Gem, accentClass: 'border-mf-orange/40 hover:border-mf-orange', iconBg: 'bg-mf-orange/10', iconColor: 'text-mf-orange',
+  },
   'diagnostico-emocional-deuda': {
     icon: HeartPulse,
     accentClass: 'border-pink-400/40 hover:border-pink-400',
@@ -70,6 +73,7 @@ const CATEGORY_BY_SLUG: Record<string, string> = {
   rentabilidad: 'investment',
   'perfil-riesgo': 'planning',
   'numero-dorado': 'planning',
+  'numero-dorado-v1': 'planning',
   'diagnostico-emocional-deuda': 'debt',
   'diagnostico-financiero-deuda': 'debt',
   'plan-pago-deuda': 'debt',
