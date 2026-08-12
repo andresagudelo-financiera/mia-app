@@ -22,21 +22,18 @@ type Campaign = {
   prizes: Array<{ title: string; description: string }>
 }
 
-function campaignConfig(): Campaign {
+function campaignConfig(): Campaign | null {
+  const title = process.env.NUMERO_DORADO_CLASS_TITLE?.trim() || ''
+  const ctaUrl = process.env.NUMERO_DORADO_CLASS_URL?.trim() || ''
+  if (!title || !ctaUrl) return null
   let prizes: Array<{ title: string; description: string }> = []
   try {
     const parsed = JSON.parse(process.env.NUMERO_DORADO_PRIZES_JSON || '[]')
-    if (Array.isArray(parsed)) prizes = parsed.map((item) => typeof item === 'string' ? { title: item, description: '' } : { title: String(item?.title || ''), description: String(item?.description || '') }).filter((item) => item.title)
+    if (Array.isArray(parsed)) prizes = parsed.map((item) => typeof item === 'string' ? { title: item.trim(), description: '' } : { title: String(item?.title || '').trim(), description: String(item?.description || '').trim() }).filter((item) => item.title)
   } catch {
-    // A malformed optional campaign setting must not block a user's report.
+    // Optional campaign data must not block a user's report.
   }
-
-  return {
-    title: process.env.NUMERO_DORADO_CLASS_TITLE || 'Clase gratuita: construye tu plan hacia la libertad financiera',
-    ctaLabel: process.env.NUMERO_DORADO_CLASS_CTA || 'Reserva tu lugar en la clase',
-    ctaUrl: process.env.NUMERO_DORADO_CLASS_URL || '',
-    prizes,
-  }
+  return { title, ctaLabel: process.env.NUMERO_DORADO_CLASS_CTA?.trim() || 'Conocer el siguiente paso', ctaUrl, prizes }
 }
 
 function asRecord(value: unknown): JsonRecord {
@@ -143,8 +140,12 @@ function createPdf(result: JsonRecord): Uint8Array {
   y += 94
   paragraph(`Este resultado usa un gasto mensual de ${formatMoney(calculation.monthlyExpense, currency)}, una meta a ${calculation.targetYears || 0} años y una inflación anual del ${Math.round((Number(assumptions.inflationRate) || 0.04) * 100)}%.`)
 
-  heading('Tu retrato')
+  heading('Tu punto de partida')
   paragraph(portrait(result))
+  paragraph(`Partes de ${formatMoney(calculation.initialCapital, currency)} de capital inicial. Cada aporte y cada rendimiento se suman desde ese punto para acercarte a la meta.`)
+
+  heading('Tu plan en dos tiempos')
+  paragraph(`Tu proyección combina un aporte inicial de ${formatMoney(calculation.phaseOneMonthlyContribution, currency)} al mes con una fase de aceleración de ${formatMoney(calculation.phaseTwoMonthlyContribution, currency)} al mes. Al final del plazo, ${formatMoney(document.summary?.projectedCapital ?? results.projectedCapital, currency)} serían patrimonio proyectado: ${formatMoney(results.totalInvested, currency)} los pones tú y ${formatMoney(results.returns, currency)} vendrían de rendimientos estimados.`)
 
   heading('Diagnóstico de tu plan')
   doc.setFillColor(240, 247, 242); doc.roundedRect(margin, y, width - margin * 2, 62, 9, 9, 'F')
@@ -167,18 +168,20 @@ function createPdf(result: JsonRecord): Uint8Array {
 
   heading('Tu recomendación priorizada')
   paragraph(recommendation(result))
-  if (y > height - 170) page()
-  doc.setFillColor(228, 98, 43); doc.roundedRect(margin, y, width - margin * 2, 80, 9, 9, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255)
-  doc.text(campaign.title, margin + 16, y + 25, { maxWidth: width - margin * 2 - 32 })
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10)
-  doc.text(campaign.ctaLabel, margin + 16, y + 49)
-  if (campaign.ctaUrl) { doc.setFontSize(8); doc.text(campaign.ctaUrl, margin + 16, y + 65) }
-  y += 96
-
-  if (campaign.prizes.length) {
-    heading('Premios de la campaña')
-    campaign.prizes.forEach((prize) => paragraph(`- ${prize.title}${prize.description ? `: ${prize.description}` : ''}`, 10))
+  if (campaign) {
+    if (y > height - 170) page()
+    doc.setFillColor(23, 21, 18); doc.roundedRect(margin, y, width - margin * 2, 96, 9, 9, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255)
+    doc.text('Ya sabes cuánto tiene que moverse cada palanca. Falta saber cómo se mueven.', margin + 16, y + 25, { maxWidth: width - margin * 2 - 32 })
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(239, 232, 213)
+    doc.text(campaign.title, margin + 16, y + 48, { maxWidth: width - margin * 2 - 32 })
+    doc.setFont('helvetica', 'bold'); doc.setTextColor(242, 207, 88)
+    doc.text(`${campaign.ctaLabel}: ${campaign.ctaUrl}`, margin + 16, y + 75, { maxWidth: width - margin * 2 - 32 })
+    y += 112
+    if (campaign.prizes.length) {
+      heading('Información adicional')
+      campaign.prizes.forEach((prize) => paragraph(`- ${prize.title}${prize.description ? `: ${prize.description}` : ''}`, 10))
+    }
   }
   heading('Importante')
   paragraph(String(document.disclaimer || DISCLAIMER), 8, [100, 93, 75])

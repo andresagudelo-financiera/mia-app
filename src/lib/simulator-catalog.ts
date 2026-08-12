@@ -69,6 +69,9 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
 ]
 
 const CHALLENGE_SLUGS = new Set(['desafio-mundial'])
+// Número Dorado V1 remains available at its legacy route for historical users,
+// but must not be surfaced as a discoverable calculator alongside the new flow.
+const HIDDEN_PUBLIC_SIMULATOR_SLUGS = new Set(['numero-dorado-v1'])
 
 export function mergeSimulatorCatalog(
   simulators: Simulator[],
@@ -85,5 +88,10 @@ export function mergeSimulatorCatalog(
   }
 
   // Mostrar activos y próximamente; ocultar deshabilitados/ocultos y retos que no pertenecen a calculadoras.
-  return merged.filter(simulator => ['active', 'coming_soon'].includes(simulator.status) && !CHALLENGE_SLUGS.has(simulator.slug))
+  return merged.filter(
+    simulator =>
+      ['active', 'coming_soon'].includes(simulator.status) &&
+      !CHALLENGE_SLUGS.has(simulator.slug) &&
+      !HIDDEN_PUBLIC_SIMULATOR_SLUGS.has(simulator.slug),
+  )
 }
