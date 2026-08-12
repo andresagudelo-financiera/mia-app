@@ -51,9 +51,16 @@ function formatMoney(value: unknown, currency: string) {
 }
 
 function recommendation(result: JsonRecord) {
+  const input = asRecord(result.input)
+  const answers = asRecord(input.answers || input)
   const source = asRecord(result.recommendation)
-  const destination = String(source.destination || '')
-  const experience = String(source.experience || '')
+  const destination = String(source.destination || answers.destino || answers.destination || '')
+  const experience = String(source.experience || answers.experiencia || answers.experience || '')
+  const debt = String(answers.deuda || answers.debt || '')
+  const capital = Number(answers.capital || 0)
+  const projected = Number(asRecord(result.results).projectedCapital || 0)
+  const target = Number(asRecord(result.results).futureCapital || 0)
+  if (debt.includes('apretando') || debt.includes('muy endeudado')) return 'Empieza por ordenar la deuda que te está quitando aire. Liberar ese flujo es la forma más directa de abrir espacio para tu aporte mensual.'
   if (destination.includes('No me queda nada') || destination.includes('yéndose')) {
     return 'Empieza por separar un aporte automático pequeño al inicio de cada mes. La consistencia vale más que buscar la inversión perfecta.'
   }
@@ -63,7 +70,19 @@ function recommendation(result: JsonRecord) {
   if (destination.includes('banco') || destination.includes('CDT')) {
     return 'Revisa si tu estrategia protege el poder adquisitivo y define qué parte de tu dinero puede trabajar con un horizonte mayor.'
   }
+  if (experience.includes('menos de dos') || experience.includes('más de dos')) return 'Ya tienes hábito de inversión. El siguiente paso es darle estructura: objetivo, plazo y una estrategia que no dependa de improvisar.'
+  if (capital > 0 && target > 0 && projected / target >= .7) return 'Tu plan ya tiene una base importante. El foco ahora es sostenerlo sin romper el proceso y revisar el avance de forma periódica.'
   return 'Tu siguiente paso es revisar aportes, diversificación y horizonte para que tu estrategia acompañe la meta que definiste.'
+}
+
+function portrait(result: JsonRecord) {
+  const input = asRecord(result.input)
+  const a = asRecord(input.answers || input)
+  const name = String(a.nombre || a.name || 'Esta persona')
+  const age = String(a.edad || a.age || '')
+  const occupation = String(a.ocupacion || a.occupation || ''); const sector = String(a.sector || '')
+  const dependents = String(a.dependientes || a.dependents || ''); const goal = String(a.objetivo || a.goal || '')
+  return `${name}${age ? ` tiene ${age} años` : ''}${occupation ? ` y hoy se desempeña como ${occupation.toLowerCase()}` : ''}${sector ? ` en ${sector}` : ''}. ${dependents ? `Comparte esta meta con ${dependents} dependiente(s) económico(s). ` : ''}${goal ? `Su prioridad es: ${goal}. ` : ''}Este plan toma sus respuestas como punto de partida para convertir una intención en decisiones concretas.`
 }
 
 function createPdf(result: JsonRecord): Uint8Array {
@@ -123,6 +142,9 @@ function createPdf(result: JsonRecord): Uint8Array {
   metric('Tu Número Dorado', formatMoney(document.summary?.futureCapital ?? results.futureCapital, currency), margin + 254)
   y += 94
   paragraph(`Este resultado usa un gasto mensual de ${formatMoney(calculation.monthlyExpense, currency)}, una meta a ${calculation.targetYears || 0} años y una inflación anual del ${Math.round((Number(assumptions.inflationRate) || 0.04) * 100)}%.`)
+
+  heading('Tu retrato')
+  paragraph(portrait(result))
 
   heading('Diagnóstico de tu plan')
   doc.setFillColor(240, 247, 242); doc.roundedRect(margin, y, width - margin * 2, 62, 9, 9, 'F')

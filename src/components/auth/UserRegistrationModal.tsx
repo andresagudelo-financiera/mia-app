@@ -364,13 +364,19 @@ export default function UserRegistrationModal({ onClose, toolName = 'rentabilida
         (err as Error)?.message ||
         'Hubo un problema al conectar con el servidor. Inténtalo de nuevo.'
       const normalizedMessage = message.toLowerCase()
+      const isIdentityMismatch =
+        (normalizedMessage.includes('ya existe') || normalizedMessage.includes('registrado')) &&
+        (normalizedMessage.includes('whatsapp') || normalizedMessage.includes('teléfono') || normalizedMessage.includes('telefono') || normalizedMessage.includes('celular'))
+      const recoveryMessage = isIdentityMismatch
+        ? 'Ya tienes una cuenta con este correo. Ingresa el WhatsApp con el que la creaste para recuperar tu avance; por seguridad no podemos cambiarlo desde aquí.'
+        : message
       if (normalizedMessage.includes('correo') || normalizedMessage.includes('email')) {
-        setFieldError('email', { message })
+        setFieldError('email', { message: recoveryMessage })
       }
       if (normalizedMessage.includes('celular') || normalizedMessage.includes('teléfono') || normalizedMessage.includes('telefono')) {
-        setFieldError('phone', { message })
+        setFieldError('phone', { message: recoveryMessage })
       }
-      setError(message)
+      setError(recoveryMessage)
     }
   }
 
