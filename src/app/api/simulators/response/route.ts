@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { MIA_USER_TOKEN_COOKIE, getBearerTokenFromAuthorizationHeader } from '@/lib/mia-user-auth-cookie'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,12 @@ const SIMULATOR_RESPONSE = `
   }
 `
 
+const MY_GOLDEN_NUMBER_V2_SNAPSHOT = `
+  query MyGoldenNumberV2Snapshot {
+    myGoldenNumberV2Snapshot
+  }
+`
+
 const SAVE_RISK_PROFILE = `
   mutation SaveRiskProfile($userId: String!, $input: JSONObject!) {
     saveRiskProfile(userId: $userId, input: $input) {
@@ -35,6 +42,20 @@ const SAVE_RISK_PROFILE = `
 const SAVE_GOLDEN_NUMBER = `
   mutation SaveGoldenNumber($userId: String!, $input: JSONObject!) {
     saveGoldenNumber(userId: $userId, input: $input) {
+      ${RESPONSE_FIELDS}
+    }
+  }
+`
+
+const CALCULATE_GOLDEN_NUMBER_V2 = `
+  query CalculateGoldenNumberV2($input: JSONObject!) {
+    calculateGoldenNumberV2(input: $input)
+  }
+`
+
+const SAVE_GOLDEN_NUMBER_V2 = `
+  mutation SaveGoldenNumberV2($input: JSONObject!, $status: String) {
+    saveGoldenNumberV2(input: $input, status: $status) {
       ${RESPONSE_FIELDS}
     }
   }
@@ -59,32 +80,37 @@ type GraphQLPayload<T> = {
   errors?: Array<{ message?: string }>
 }
 
-export async function GET(request: Request) {
+function getMiaUserToken(request: NextRequest) {
+  return request.cookies.get(MIA_USER_TOKEN_COOKIE)?.value || getBearerTokenFromAuthorizationHeader(request.headers.get('authorization'))
+}
+
+export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId') || ''
   const simulatorKey = searchParams.get('simulatorKey') || ''
-
-  if (!userId || !simulatorKey) {
-    return NextResponse.json({ error: 'userId y simulatorKey son requeridos.' }, { status: 400 })
+  const token = getMiaUserToken(request)
+  if (simulatorKey === 'numero-dorado-v2') {
+    if (!token) return NextResponse.json({ error: 'Debes iniciar sesión para consultar tu Número Dorado.' }, { status: 401 })
+    const payload = await proxyGraphQL<{ myGoldenNumberV2Snapshot: unknown }>(MY_GOLDEN_NUMBER_V2_SNAPSHOT, {}, token)
+    if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
+    return NextResponse.json({ simulatorResponse: payload.data?.myGoldenNumberV2Snapshot ?? null })
   }
 
+  const userId = searchParams.get('userId') || ''
+  if (!userId || !simulatorKey) return NextResponse.json({ error: 'userId y simulatorKey son requeridos.' }, { status: 400 })
   const payload = await proxyGraphQL<{ simulatorResponse: unknown }>(SIMULATOR_RESPONSE, { userId, simulatorKey })
-
-  if (!payload.ok) {
-    return NextResponse.json({ error: payload.error }, { status: payload.status })
-  }
-
+  if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
   return NextResponse.json({ simulatorResponse: payload.data?.simulatorResponse ?? null })
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const action = String(body?.action || '')
   const userId = String(body?.userId || '')
   const input = body?.input ?? {}
   const simulatorKey = String(body?.simulatorKey || '')
+  const status = typeof body?.status === 'string' ? body.status : undefined
 
-  if (!userId && action !== 'calculateAntiDebtSimulator') {
+  if (!userId && !['calculateAntiDebtSimulator', 'calculateGoldenNumberV2', 'saveGoldenNumberV2'].includes(action)) {
     return NextResponse.json({ error: 'userId es requerido.' }, { status: 400 })
   }
 
@@ -98,6 +124,20 @@ export async function POST(request: Request) {
     const payload = await proxyGraphQL<{ saveGoldenNumber: unknown }>(SAVE_GOLDEN_NUMBER, { userId, input })
     if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
     return NextResponse.json({ simulatorResponse: payload.data?.saveGoldenNumber })
+  }
+
+  if (action === 'calculateGoldenNumberV2') {
+    const payload = await proxyGraphQL<{ calculateGoldenNumberV2: unknown }>(CALCULATE_GOLDEN_NUMBER_V2, { input })
+    if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
+    return NextResponse.json({ result: payload.data?.calculateGoldenNumberV2 })
+  }
+
+  if (action === 'saveGoldenNumberV2') {
+    const token = getMiaUserToken(request)
+    if (!token) return NextResponse.json({ error: 'Debes iniciar sesión para guardar tu Número Dorado.' }, { status: 401 })
+    const payload = await proxyGraphQL<{ saveGoldenNumberV2: unknown }>(SAVE_GOLDEN_NUMBER_V2, { input, status }, token)
+    if (!payload.ok) return NextResponse.json({ error: payload.error }, { status: payload.status })
+    return NextResponse.json({ simulatorResponse: payload.data?.saveGoldenNumberV2 })
   }
 
   if (action === 'calculateAntiDebtSimulator') {
@@ -117,14 +157,14 @@ export async function POST(request: Request) {
   return NextResponse.json({ error: 'Acción no soportada.' }, { status: 400 })
 }
 
-async function proxyGraphQL<T>(query: string, variables: Record<string, unknown>): Promise<
+async function proxyGraphQL<T>(query: string, variables: Record<string, unknown>, token?: string): Promise<
   | { ok: true; data: T }
   | { ok: false; status: number; error: string }
 > {
   try {
     const response = await fetch(MIA_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       body: JSON.stringify({ query, variables }),
       cache: 'no-store',
     })

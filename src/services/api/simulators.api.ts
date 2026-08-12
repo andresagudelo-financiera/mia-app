@@ -73,6 +73,44 @@ export const simulatorsApi = {
     return payload.simulatorResponse
   },
 
+  async getGoldenNumberV2() {
+    const payload = await requestSimulatorResponse('/api/simulators/response?simulatorKey=numero-dorado-v2')
+    return payload.simulatorResponse ?? null
+  },
+
+  async saveGoldenNumberV2(
+    inputOrLegacyUserId: unknown,
+    inputOrStatus?: unknown | 'draft' | 'completed',
+    legacyStatus?: 'draft' | 'completed',
+  ) {
+    // Accept the prior (userId, input, status) signature while identity is now cookie-bound.
+    const input = typeof inputOrLegacyUserId === 'string' && inputOrStatus && typeof inputOrStatus === 'object'
+      ? inputOrStatus
+      : inputOrLegacyUserId
+    const status = (typeof inputOrLegacyUserId === 'string' && inputOrStatus && typeof inputOrStatus === 'object'
+      ? legacyStatus
+      : inputOrStatus) === 'completed' ? 'completed' : 'draft'
+    const payload = await requestSimulatorResponse('/api/simulators/response', { method: 'POST', body: JSON.stringify({ action: 'saveGoldenNumberV2', input, status }) })
+    if (!payload.simulatorResponse) throw new Error('No se pudo guardar tu avance.')
+    return payload.simulatorResponse
+  },
+
+  async downloadGoldenNumberV2Pdf() {
+    const response = await fetch('/api/simulators/numero-dorado-v2/pdf', { method: 'POST' })
+    if (!response.ok) throw new Error('No se pudo generar tu PDF.')
+    return response.blob()
+  },
+
+  async calculateGoldenNumberV2(input: unknown) {
+    const payload = await requestSimulatorResponse('/api/simulators/response', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'calculateGoldenNumberV2', input }),
+    })
+
+    if (!payload.result) throw new Error('No se pudo calcular el número dorado.')
+    return payload.result
+  },
+
   async calculateAntiDebtSimulator(simulatorKey: string, input: unknown) {
     const payload = await requestSimulatorResponse('/api/simulators/response', {
       method: 'POST',

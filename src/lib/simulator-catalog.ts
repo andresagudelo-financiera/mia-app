@@ -19,9 +19,17 @@ export const DEFAULT_PUBLIC_SIMULATORS: Simulator[] = [
     accessType: 'free',
   },
   {
-    id: 'numero-dorado',
+    id: 'numero-dorado-v2',
     slug: 'numero-dorado',
     name: 'Número Dorado',
+    description: 'Descubre tu número dorado y construye un plan personalizado para alcanzarlo.',
+    status: 'active',
+    accessType: 'free',
+  },
+  {
+    id: 'numero-dorado',
+    slug: 'numero-dorado-v1',
+    name: 'Número Dorado V1',
     description: 'Calcula cuánto necesitas acumular para sostener tu retiro con inflación y rentabilidad esperada.',
     status: 'active',
     accessType: 'free',
