@@ -14,3 +14,12 @@ describe('money input formatting', () => {
     expect(formatMoneyDraft('1234.', 'USD')).toBe('1,234.')
   })
 })
+
+describe('large whole-number monetary input', () => {
+  it('does not truncate normal high USD and COP amounts while grouping', () => {
+    expect(formatMoneyDraft('1500000', 'USD')).toBe('1,500,000')
+    expect(parseMoneyValue('1,500,000', 'USD')).toBe(1500000)
+    expect(formatMoneyDraft('100000000000', 'COP')).toBe('100.000.000.000')
+    expect(parseMoneyValue('100.000.000.000', 'COP')).toBe(100000000000)
+  })
+})

@@ -227,19 +227,28 @@ export const userApi = {
     },
     toolName = 'rentabilidad',
   ) {
-    const response = await fetch('/api/users/progressive-entry', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...data, toolName }),
-      cache: 'no-store',
-    });
+    try {
+      const response = await fetch('/api/users/progressive-entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, toolName }),
+        cache: 'no-store',
+      });
 
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      throw new Error(payload?.error || 'No pudimos darte acceso a la calculadora.');
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No pudimos darte acceso a la calculadora.');
+      }
+
+      return normalizeUser(payload?.user);
+    } catch (error) {
+      // Network failures (for example, a stopped local Next server) must not leak
+      // the raw browser exception into the registration form.
+      if (error instanceof TypeError && error.message.toLowerCase().includes('fetch')) {
+        throw new Error('No pudimos conectar con la calculadora. Revisa tu conexión e inténtalo de nuevo.')
+      }
+      throw error
     }
-
-    return normalizeUser(payload?.user);
   },
 
   async setInitialPassword(

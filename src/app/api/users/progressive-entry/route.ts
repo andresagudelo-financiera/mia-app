@@ -203,6 +203,12 @@ export async function POST(request: Request) {
     return setMiaUserAuthCookie(NextResponse.json({ user, n8nLeadSync }), user?.authToken)
   } catch (error) {
     console.error('Progressive user entry failed:', error)
-    return NextResponse.json({ user: null, error: 'No pudimos darte acceso a la calculadora.' }, { status: 500 })
+    return NextResponse.json(
+      {
+        user: null,
+        error: 'No pudimos conectar con la calculadora en este momento. Inténtalo de nuevo en unos segundos.',
+      },
+      { status: 503 },
+    )
   }
 }
