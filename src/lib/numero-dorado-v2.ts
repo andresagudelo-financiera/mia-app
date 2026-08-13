@@ -44,4 +44,27 @@ export function countryFromPhone(phone?:string) { const normalized=(phone||'').r
 export function currencyForCountry(country?:string) { return ({ CO:'COP', MX:'MXN', PE:'PEN', CL:'CLP', US:'USD', AR:'USD' } as Record<string,string>)[country || ''] || 'USD' }
 export function convertCurrency(value:number, from:string, to:string) { return value / (CURRENCY_RATES[from] || 1) * (CURRENCY_RATES[to] || 1) }
 export function incomeRanges(currency:string) { return currency==='COP' ? ['Menos de $2 millones','Entre $2 y $4 millones','Entre $4 y $8 millones','Entre $8 y $15 millones','Más de $15 millones'] : ['Menos de USD 500','Entre USD 500 y 1.000','Entre USD 1.000 y 2.000','Entre USD 2.000 y 4.000','Más de USD 4.000'] }
-export function suggestedContribution(income:string,destination:string,currency:string) { const cop:{[key:string]:number}={'Menos de $2 millones':1500000,'Entre $2 y $4 millones':3000000,'Entre $4 y $8 millones':6000000,'Entre $8 y $15 millones':11500000,'Más de $15 millones':20000000}; const usd:{[key:string]:number}={'Menos de USD 500':375,'Entre USD 500 y 1.000':750,'Entre USD 1.000 y 2.000':1500,'Entre USD 2.000 y 4.000':3000,'Más de USD 4.000':5000}; const pct=destination.includes('nada')?.03:destination.includes('yéndose')?.08:destination.includes('banco')?.15:destination.includes('CDT')?.18:.22; const base=(currency==='COP'?cop:usd)[income] || (currency==='COP'?3000000:750); const round=currency==='COP'?50000:25; return Math.max(round,Math.round(base*pct/round)*round) }
+export function suggestedContribution(income:string,destination:string,currency:string) { const usdById:Record<string,number>={'under-500':375,'500-1000':750,'1000-2000':1500,'2000-4000':3000,'over-4000':5000}; const baseUsd=usdById[incomeRangeId(income)]||750; const base=convertCurrencyWithSnapshot(baseUsd,'USD',currency); const pct=destination.includes('nada')?.03:destination.includes('yéndose')?.08:destination.includes('banco')?.15:destination.includes('CDT')?.18:.22; const round=currency==='COP'?50000:currency==='CLP'?1000:currency==='MXN'?100:1; return Math.max(round,Math.round(base*pct/round)*round) }
+
+/** Immutable per-session FX snapshot. Rates are units of currency per USD. */
+export type GoldenNumberFxSnapshot = { requestedDate:string; observationDate:string; source:string; version:string; rates:Record<string,number> }
+export const DEFAULT_GOLDEN_NUMBER_FX_SNAPSHOT: GoldenNumberFxSnapshot = {
+  requestedDate: 'local', observationDate: 'local', source: 'deterministic-local-fallback', version: 'v1', rates: CURRENCY_RATES,
+}
+export const INCOME_RANGE_IDS = ['under-500','500-1000','1000-2000','2000-4000','over-4000'] as const
+const INCOME_USD_BREAKS = [500,1000,2000,4000]
+const ROUND_GRANULARITY:Record<string,number>={COP:100000,CLP:1000,MXN:100,USD:1,EUR:1,PEN:1}
+export function roundCurrencyAmount(value:number,currency:string){const g=ROUND_GRANULARITY[currency]||1;return Math.round(value/g)*g}
+export function convertCurrencyWithSnapshot(value:number,from:string,to:string,snapshot:GoldenNumberFxSnapshot=DEFAULT_GOLDEN_NUMBER_FX_SNAPSHOT){if(from===to)return Math.round(value);const rates=snapshot.rates||CURRENCY_RATES;return Math.round(value/(rates[from]||1)*(rates[to]||1))}
+export function formatCurrencyInteger(value:number,currency:string){return new Intl.NumberFormat(currency==='COP'||currency==='CLP'?'es-CO':'en-US',{style:'currency',currency,maximumFractionDigits:0}).format(Math.round(value))}
+/**
+ * Formats Magned income ranges with the selected currency code after the value.
+ * IDs and underlying USD-equivalent breaks stay stable for persistence/conversion.
+ */
+export function incomeRangeOptions(currency:string,snapshot:GoldenNumberFxSnapshot=DEFAULT_GOLDEN_NUMBER_FX_SNAPSHOT){
+ const rate=snapshot.rates?.[currency]||CURRENCY_RATES[currency]||1
+ const amounts=INCOME_USD_BREAKS.map(n=>roundCurrencyAmount(n*rate,currency))
+ const amount=(n:number)=>`$ ${new Intl.NumberFormat('es-CO',{maximumFractionDigits:0}).format(Math.round(n))}`
+ return INCOME_RANGE_IDS.map((id,index)=>({id,label:index===0?`Menos de ${amount(amounts[0])} ${currency}`:index===INCOME_RANGE_IDS.length-1?`Más de ${amount(amounts[3])} ${currency}`:`Entre ${amount(amounts[index-1])} y ${amount(amounts[index])} ${currency}`}))
+}
+export function incomeRangeId(value:unknown){const raw=String(value||'');if((INCOME_RANGE_IDS as readonly string[]).includes(raw))return raw;const legacy=raw.toLowerCase();if(legacy.includes('menos'))return 'under-500';if(legacy.includes('2 y $4')||legacy.includes('500 y 1'))return '500-1000';if(legacy.includes('4 y $8')||legacy.includes('1.000 y 2'))return '1000-2000';if(legacy.includes('8 y $15')||legacy.includes('2.000 y 4'))return '2000-4000';return 'over-4000'}
