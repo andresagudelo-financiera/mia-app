@@ -19,6 +19,11 @@ async function request(path: string, init?: RequestInit): Promise<ApiPayload> {
  */
 export const magnedGoldenNumberApi = {
   async getSnapshot() { return (await request('/api/magned/numero-dorado')).simulatorResponse || null },
+  async reset() {
+    const payload = await request('/api/magned/numero-dorado', { method: 'POST', body: JSON.stringify({ action: 'reset' }) })
+    if (!payload.simulatorResponse) throw new Error('No pudimos reiniciar esta simulación.')
+    return payload.simulatorResponse
+  },
   async save(input: unknown, status: 'draft' | 'completed') {
     const payload = await request('/api/magned/numero-dorado', { method: 'POST', body: JSON.stringify({ action: 'save', input, status }) })
     if (!payload.simulatorResponse) throw new Error('No pudimos guardar tu avance.')
