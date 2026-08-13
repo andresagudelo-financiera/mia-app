@@ -22,10 +22,11 @@ type Campaign = {
   prizes: Array<{ title: string; description: string }>
 }
 
-function campaignConfig(): Campaign | null {
-  const title = process.env.NUMERO_DORADO_CLASS_TITLE?.trim() || ''
+function campaignConfig(): Campaign {
+  // The invitation is part of the report, not an optional campaign decoration.
+  // Environment values may enrich its title, CTA, and destination without removing it.
+  const title = process.env.NUMERO_DORADO_CLASS_TITLE?.trim() || 'Masterclass del 7 de septiembre'
   const ctaUrl = process.env.NUMERO_DORADO_CLASS_URL?.trim() || ''
-  if (!title || !ctaUrl) return null
   let prizes: Array<{ title: string; description: string }> = []
   try {
     const parsed = JSON.parse(process.env.NUMERO_DORADO_PRIZES_JSON || '[]')
@@ -33,7 +34,7 @@ function campaignConfig(): Campaign | null {
   } catch {
     // Optional campaign data must not block a user's report.
   }
-  return { title, ctaLabel: process.env.NUMERO_DORADO_CLASS_CTA?.trim() || 'Conocer el siguiente paso', ctaUrl, prizes }
+  return { title, ctaLabel: process.env.NUMERO_DORADO_CLASS_CTA?.trim() || 'Preparar mi plan para la masterclass', ctaUrl, prizes }
 }
 
 function asRecord(value: unknown): JsonRecord {
@@ -159,33 +160,70 @@ function createPdf(result: JsonRecord): Uint8Array {
   levers.slice(0, 3).forEach((lever: JsonRecord, index: number) => {
     const title = String(lever.title || '')
     const details = [
-      'Define un aporte sostenible y automatízalo.',
-      'Busca una estrategia coherente con tu horizonte y tolerancia al riesgo.',
-      'Sostén el plan y revisa el progreso de forma periódica.',
+      'Define un aporte sostenible y automatízalo. Empieza por lo que te sobra, sin romper tu vida.',
+      'Claudia Uribe te ayudará a revisar la tasa a la que rentas y a comparar alternativas con criterio, sin apostar.',
+      'Sostén el plan y revisa el progreso de forma periódica. Cada aporte sostenido le da más tiempo a tu plan.',
     ][index]
     paragraph(`${String(index + 1).padStart(2, '0')} - ${title}. ${details}`, 10)
   })
 
   heading('Tu recomendación priorizada')
   paragraph(recommendation(result))
-  if (campaign) {
-    if (y > height - 170) page()
-    doc.setFillColor(23, 21, 18); doc.roundedRect(margin, y, width - margin * 2, 96, 9, 9, 'F')
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(255, 255, 255)
-    doc.text('Ya sabes cuánto tiene que moverse cada palanca. Falta saber cómo se mueven.', margin + 16, y + 25, { maxWidth: width - margin * 2 - 32 })
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(239, 232, 213)
-    doc.text(campaign.title, margin + 16, y + 48, { maxWidth: width - margin * 2 - 32 })
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(242, 207, 88)
-    doc.text(`${campaign.ctaLabel}: ${campaign.ctaUrl}`, margin + 16, y + 75, { maxWidth: width - margin * 2 - 32 })
-    y += 112
-    if (campaign.prizes.length) {
-      heading('Información adicional')
-      campaign.prizes.forEach((prize) => paragraph(`- ${prize.title}${prize.description ? `: ${prize.description}` : ''}`, 10))
-    }
+
+  // Keep the conversion step on its own page so the report does not simply end at the diagnosis.
+  page()
+  doc.setFillColor(23, 21, 18); doc.rect(0, 0, width, height, 'F')
+  const darkText = (text: string, x: number, top: number, size: number, color: [number, number, number], options: { bold?: boolean; maxWidth?: number } = {}) => {
+    doc.setFont('helvetica', options.bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(...color)
+    const lines = doc.splitTextToSize(text, options.maxWidth || width - margin * 2)
+    doc.text(lines, x, top)
+    return top + lines.length * (size + 4)
   }
-  heading('Importante')
-  paragraph(String(document.disclaimer || DISCLAIMER), 8, [100, 93, 75])
-  footer()
+  let closingY = 62
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(220, 180, 58)
+  doc.text('TU SIGUIENTE PASO', margin, closingY)
+  closingY = darkText('Ya sabes cuánto tiene que moverse cada palanca. Falta saber cómo se mueven.', margin, closingY + 34, 24, [255, 255, 255], { bold: true, maxWidth: width - margin * 2 - 20 }) + 12
+  closingY = darkText('Esta es una simulación informativa, hecha con las variables que elegiste. Descárgala y llévala a la masterclass: allí Claudia Uribe te ayudará a interpretar tu número y a mover tus tres palancas con intención.', margin, closingY, 11, [239, 232, 213], { maxWidth: width - margin * 2 - 16 }) + 18
+
+  doc.setFillColor(46, 42, 32); doc.roundedRect(margin, closingY, width - margin * 2, 102, 10, 10, 'F')
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(220, 180, 58)
+  doc.text('TU CITA', margin + 18, closingY + 20)
+  doc.setFontSize(15); doc.setTextColor(255, 255, 255)
+  doc.text('Masterclass · 7 de septiembre', margin + 18, closingY + 44)
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(239, 232, 213)
+  const campaignLine = campaign.title === 'Masterclass del 7 de septiembre' ? '' : `${campaign.title}. `
+  doc.text(`${campaignLine}Lleva este plan: será el punto de partida para revisar lo que puedes mover y tomar decisiones con más claridad.`, margin + 18, closingY + 67, { maxWidth: width - margin * 2 - 36 })
+  closingY += 126
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255)
+  doc.text('Las tres palancas que vas a llevar', margin, closingY)
+  const recap = [
+    ['01', 'Cuánto aportas cada mes', `Hoy partes de ${formatMoney(calculation.phaseOneMonthlyContribution, currency)} al mes. Busca un aporte que puedas sostener.`],
+    ['02', 'A qué tasa rinde tu dinero', 'Claudia Uribe te ayudará a revisar la tasa a la que rentas y a entender alternativas con criterio.'],
+    ['03', 'Cuánto tiempo lo sostienes', `Tu horizonte es de ${calculation.targetYears || 0} años. La constancia hace que el interés compuesto tenga tiempo para trabajar.`],
+  ]
+  closingY += 18
+  recap.forEach(([number, title, body]) => {
+    doc.setFillColor(46, 42, 32); doc.roundedRect(margin, closingY, width - margin * 2, 54, 7, 7, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(220, 180, 58)
+    doc.text(number, margin + 14, closingY + 20)
+    doc.setTextColor(255, 255, 255); doc.text(title, margin + 46, closingY + 20)
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(239, 232, 213)
+    doc.text(doc.splitTextToSize(body, width - margin * 2 - 60), margin + 46, closingY + 36)
+    closingY += 62
+  })
+  if (campaign.ctaUrl) {
+    doc.setFillColor(220, 180, 58); doc.roundedRect(margin, closingY + 2, width - margin * 2, 32, 7, 7, 'F')
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(23, 21, 18)
+    doc.textWithLink(campaign.ctaLabel, width / 2, closingY + 22, { align: 'center', url: campaign.ctaUrl })
+    closingY += 48
+  }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(201, 193, 174)
+  doc.text(doc.splitTextToSize(String(document.disclaimer || DISCLAIMER), width - margin * 2), margin, height - 58)
+  doc.setDrawColor(86, 79, 62); doc.line(margin, height - 40, width - margin, height - 40)
+  doc.setFontSize(8); doc.setTextColor(201, 193, 174)
+  doc.text('Número Dorado - reporte personalizado', margin, height - 24)
+  doc.text(`Generado el ${new Intl.DateTimeFormat('es-CO', { dateStyle: 'medium' }).format(new Date())}`, width - margin, height - 24, { align: 'right' })
 
   return new Uint8Array(doc.output('arraybuffer'))
 }
