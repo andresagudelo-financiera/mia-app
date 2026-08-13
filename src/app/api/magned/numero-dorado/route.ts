@@ -54,10 +54,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const token = tokenFor(request)
-    if (!token) return NextResponse.json({ error: 'No pudimos iniciar tu sesión de simulación. Recarga la página e inténtalo de nuevo.' }, { status: 401 })
     const incoming = await request.json().catch(() => null) as Record<string, any> | null
     const action = String(incoming?.action || '')
+    // Reset keeps the same anonymous lead session. Contact, selected currency,
+    // and the fixed FX snapshot remain attached to the existing record; only
+    // questionnaire/calculation state is cleared by the backend.
+    if (action === 'reset') {
+      const token = tokenFor(request)
+      if (!token) return NextResponse.json({ error: 'No pudimos encontrar tu simulación. Recarga la página e inténtalo de nuevo.' }, { status: 401 })
+      const response = await callBackend('POST', token, { action: 'reset' })
+      return responseWithSession(response, await response.json().catch(() => null))
+    }
+    const token = tokenFor(request)
+    if (!token) return NextResponse.json({ error: 'No pudimos iniciar tu sesión de simulación. Recarga la página e inténtalo de nuevo.' }, { status: 401 })
     const normalized = action === 'save'
       ? { action: incoming?.status === 'completed' ? 'complete' : 'save', input: incoming?.input, currentStep: incoming?.input?.currentStep, attribution: incoming?.attribution }
       : action === 'contact'

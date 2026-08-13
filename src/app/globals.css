@@ -104,3 +104,52 @@
     display: none;
   }
 }
+
+/* Magned public flow: explicit contrast so a global dark-mode preference never
+   turns field values or helper copy into dark text on a dark card. */
+@layer utilities {
+  .dark .magned-number-dorado {
+    background-color: #12110f !important;
+    color: #f6f1e8;
+  }
+
+  .dark .magned-number-dorado .bg-white,
+  .dark .magned-number-dorado .bg-\[\#fdf9ec\],
+  .dark .magned-number-dorado .bg-\[\#fffbed\] {
+    background-color: #1d1a16 !important;
+    border-color: #625744 !important;
+  }
+
+  .dark .magned-number-dorado input:not([type='range']),
+  .dark .magned-number-dorado select,
+  .dark .magned-number-dorado textarea {
+    background-color: #28231d !important;
+    color: #f8f3ea !important;
+    border-color: #756751 !important;
+  }
+
+  .dark .magned-number-dorado input::placeholder,
+  .dark .magned-number-dorado textarea::placeholder {
+    color: #c9bda9 !important;
+    opacity: 1;
+  }
+
+  .dark .magned-number-dorado input:focus,
+  .dark .magned-number-dorado select:focus,
+  .dark .magned-number-dorado textarea:focus {
+    border-color: #ff765f !important;
+    outline-color: #ff765f;
+  }
+
+  .dark .magned-number-dorado .text-\[\#1c1915\],
+  .dark .magned-number-dorado .text-\[\#29251f\],
+  .dark .magned-number-dorado .text-\[\#3d3832\],
+  .dark .magned-number-dorado .text-\[\#4f4a43\],
+  .dark .magned-number-dorado .text-\[\#625b52\] {
+    color: #f6f1e8 !important;
+  }
+
+  .dark .magned-number-dorado .text-neutral {
+    color: #d8cebf !important;
+  }
+}
