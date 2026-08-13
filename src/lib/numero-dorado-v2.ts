@@ -1,16 +1,45 @@
 export const INFLATION = .04
 export const PHASE_ONE_YEARS = 5
+/** Internal model assumption. This is intentionally never exposed in the UI or report. */
+const INTERNAL_HORIZON_AGE = 85
 export const CURRENCY_RATES: Record<string, number> = { COP: 4100, USD: 1, MXN: 17.5, PEN: 3.7, CLP: 950, EUR: .92 }
 export const SUPPORTED_GOLDEN_NUMBER_CURRENCIES = Object.keys(CURRENCY_RATES)
 export type GoldenNumberV2Input = Record<string, string | number | boolean>
 export type GoldenNumberV2Settings = { monthlySpend:number; years:number; capital:number; targetReturn:number; phase1Contribution:number; phase1Return:number; phase2Contribution:number; phase2Return:number; indexPhase1:boolean; indexPhase2:boolean; age:number }
+export type GoldenNumberValidationIssue = 'age_horizon' | 'net_rate' | null
 const realRate=(gross:number)=>Math.max(0,gross-INFLATION)
-export function goldenNumber(monthlySpend:number, years:number, grossReturn:number) { const r=grossReturn-INFLATION; return r > .0001 ? monthlySpend * 12 * Math.pow(1+INFLATION, years) / r : Infinity }
+
+/**
+ * Mirrors the spreadsheet's finite-horizon formula.
+ *
+ * The spreadsheet calculates the target with its `F9 + 1` timing convention.
+ * Therefore a person choosing a 10-year goal receives eleven inflation
+ * adjustments in the target formula, which reproduces its 292,061 reference
+ * case. Age at goal still remains current age + selected years.
+ */
+export function goldenNumber(monthlySpend:number, years:number, nominalReturn:number, currentAge:number): number {
+  const annualExpense = monthlySpend * 12
+  const netRate = nominalReturn - INFLATION
+  const ageAtGoal = currentAge + years
+  const coverageYears = INTERNAL_HORIZON_AGE - ageAtGoal
+  if (!Number.isFinite(annualExpense) || !Number.isFinite(netRate) || !Number.isFinite(ageAtGoal) || netRate <= .0001 || coverageYears <= 0) return Infinity
+  const spreadsheetInflationPeriods = years + 1
+  const projectedAnnualExpense = annualExpense * Math.pow(1 + INFLATION, spreadsheetInflationPeriods)
+  const durationFactor = 1 - Math.pow((1 + INFLATION) / (1 + nominalReturn), coverageYears)
+  const target = projectedAnnualExpense / netRate * durationFactor
+  return Number.isFinite(target) && target >= 0 ? target : Infinity
+}
+
+export function validationIssue(s: Pick<GoldenNumberV2Settings, 'age' | 'years' | 'targetReturn'>): GoldenNumberValidationIssue {
+  if (!Number.isFinite(s.age) || !Number.isFinite(s.years) || s.age + s.years >= INTERNAL_HORIZON_AGE) return 'age_horizon'
+  if (!Number.isFinite(s.targetReturn) || s.targetReturn - INFLATION <= .0001) return 'net_rate'
+  return null
+}
 export function futureValueYears(initial:number, monthly:number, grossReturn:number, years:number, indexed:boolean) { const m=Math.pow(1+realRate(grossReturn),1/12)-1; const annual=Math.pow(1+m,12); let balance=initial; for(let y=0;y<Math.round(years);y++){ const contribution=indexed ? monthly*Math.pow(1+INFLATION,y) : monthly; const annuity=m>0 ? contribution*((annual-1)/m)*(1+m) : contribution*12; balance=balance*annual+annuity } return balance }
 export function futureValue(s:GoldenNumberV2Settings, years=s.years) { const y1=Math.min(years,PHASE_ONE_YEARS); return futureValueYears(futureValueYears(s.capital,s.phase1Contribution,s.phase1Return,y1,s.indexPhase1),s.phase2Contribution,s.phase2Return,Math.max(0,years-PHASE_ONE_YEARS),s.indexPhase2) }
 export function invested(s:GoldenNumberV2Settings, years=s.years) { let total=s.capital; for(let y=0;y<Math.min(years,PHASE_ONE_YEARS);y++) total += s.phase1Contribution*12*(s.indexPhase1?Math.pow(1+INFLATION,y):1); for(let y=0;y<Math.max(0,years-PHASE_ONE_YEARS);y++) total += s.phase2Contribution*12*(s.indexPhase2?Math.pow(1+INFLATION,y):1); return total }
-export function reachedYear(s:GoldenNumberV2Settings) { for(let y=1;y<=s.years+45;y++) if(futureValue(s,y)>=goldenNumber(s.monthlySpend,y,s.targetReturn)) return y; return null }
-export function calculateGoldenNumberV2(s:GoldenNumberV2Settings) { const today=goldenNumber(s.monthlySpend,0,s.targetReturn), target=goldenNumber(s.monthlySpend,s.years,s.targetReturn), projected=futureValue(s), totalInvested=invested(s), year=reachedYear(s); return { today,target,projected,totalInvested,returns:Math.max(0,projected-totalInvested),year,series:Array.from({length:Math.max(s.years,year ? Math.min(year+1,s.years+45):s.years)+1},(_,y)=>({year:y,capital:futureValue(s,y),contributed:invested(s,y),target:goldenNumber(s.monthlySpend,y,s.targetReturn)})) } }
+export function reachedYear(s:GoldenNumberV2Settings) { if (validationIssue(s)) return null; const lastYear = Math.max(s.years, INTERNAL_HORIZON_AGE - s.age - 1); for(let y=1;y<=lastYear;y++) if(futureValue(s,y)>=goldenNumber(s.monthlySpend,y,s.targetReturn,s.age)) return y; return null }
+export function calculateGoldenNumberV2(s:GoldenNumberV2Settings) { const issue=validationIssue(s); const today=goldenNumber(s.monthlySpend,0,s.targetReturn,s.age), target=goldenNumber(s.monthlySpend,s.years,s.targetReturn,s.age), projected=futureValue(s), totalInvested=invested(s), year=reachedYear(s); const seriesEnd=issue ? s.years : Math.max(s.years,year ? Math.min(year+1,INTERNAL_HORIZON_AGE-s.age-1):s.years); return { today,target,projected,totalInvested,returns:Math.max(0,projected-totalInvested),year,validationIssue:issue,series:Array.from({length:Math.max(0,seriesEnd)+1},(_,y)=>({year:y,capital:futureValue(s,y),contributed:invested(s,y),target:goldenNumber(s.monthlySpend,y,s.targetReturn,s.age)})) } }
 export function countryFromPhone(phone?:string) { const normalized=(phone||'').replace(/[^\d+]/g,''); return normalized.startsWith('+57')||normalized.startsWith('57') ? 'CO' : undefined }
 export function currencyForCountry(country?:string) { return ({ CO:'COP', MX:'MXN', PE:'PEN', CL:'CLP', US:'USD', AR:'USD' } as Record<string,string>)[country || ''] || 'USD' }
 export function convertCurrency(value:number, from:string, to:string) { return value / (CURRENCY_RATES[from] || 1) * (CURRENCY_RATES[to] || 1) }
