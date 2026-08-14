@@ -23,6 +23,24 @@ describe('Número Dorado V2 calculation', () => {
     expect(isSupportedGoldenNumberAge(35.5)).toBe(false)
   })
 
+  it('extends the chart through a meaningful crossover after the selected plan', () => {
+    const result = calculateGoldenNumberV2({
+      ...base,
+      age: 32,
+      years: 10,
+      monthlySpend: 1_000,
+      targetReturn: .08,
+      phase1Contribution: 100,
+      phase1Return: .08,
+      phase2Contribution: 125,
+      phase2Return: .12,
+    })
+
+    expect(result.year).toBe(44)
+    expect(result.year).toBeGreaterThan(result.series[10].year)
+    expect(result.series.at(-1)?.year).toBe(45)
+  })
+
   it('uses the spreadsheet finite-horizon formula for the approved reference case', () => {
     const result = calculateGoldenNumberV2({ ...base, age: 50, years: 10, monthlySpend: 1_500, targetReturn: .12 })
     // 18,000 annual expense, 10-year goal, Excel F9+1 timing convention and finite coverage period.

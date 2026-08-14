@@ -47,7 +47,18 @@ export function validationIssue(s: Pick<GoldenNumberV2Settings, 'age' | 'years' 
 export function futureValueYears(initial:number, monthly:number, grossReturn:number, years:number, indexed:boolean) { const m=Math.pow(1+realRate(grossReturn),1/12)-1; const annual=Math.pow(1+m,12); let balance=initial; for(let y=0;y<Math.round(years);y++){ const contribution=indexed ? monthly*Math.pow(1+INFLATION,y) : monthly; const annuity=m>0 ? contribution*((annual-1)/m)*(1+m) : contribution*12; balance=balance*annual+annuity } return balance }
 export function futureValue(s:GoldenNumberV2Settings, years=s.years) { const y1=Math.min(years,PHASE_ONE_YEARS); return futureValueYears(futureValueYears(s.capital,s.phase1Contribution,s.phase1Return,y1,s.indexPhase1),s.phase2Contribution,s.phase2Return,Math.max(0,years-PHASE_ONE_YEARS),s.indexPhase2) }
 export function invested(s:GoldenNumberV2Settings, years=s.years) { let total=s.capital; for(let y=0;y<Math.min(years,PHASE_ONE_YEARS);y++) total += s.phase1Contribution*12*(s.indexPhase1?Math.pow(1+INFLATION,y):1); for(let y=0;y<Math.max(0,years-PHASE_ONE_YEARS);y++) total += s.phase2Contribution*12*(s.indexPhase2?Math.pow(1+INFLATION,y):1); return total }
-export function reachedYear(s:GoldenNumberV2Settings) { if (validationIssue(s)) return null; const lastYear = Math.max(s.years, INTERNAL_HORIZON_AGE - s.age - 1); for(let y=1;y<=lastYear;y++) if(futureValue(s,y)>=goldenNumber(s.monthlySpend,y,s.targetReturn,s.age)) return y; return null }
+/** Finds the first meaningful crossover, including years after the selected plan.
+ * The graph may therefore extend beyond the chosen deadline, but never beyond
+ * the final valid pre-horizon year (age 84 under the fixed internal assumption).
+ */
+export function reachedYear(s:GoldenNumberV2Settings) {
+ if (validationIssue(s)) return null
+ const lastEligibleYear = INTERNAL_HORIZON_AGE - s.age - 1
+ for (let y=1;y<=lastEligibleYear;y++) {
+  if (futureValue(s,y) >= goldenNumber(s.monthlySpend,y,s.targetReturn,s.age)) return y
+ }
+ return null
+}
 export function calculateGoldenNumberV2(s:GoldenNumberV2Settings) { const issue=validationIssue(s); const today=goldenNumber(s.monthlySpend,0,s.targetReturn,s.age), target=goldenNumber(s.monthlySpend,s.years,s.targetReturn,s.age), projected=futureValue(s), totalInvested=invested(s), year=reachedYear(s); const seriesEnd=issue ? s.years : Math.max(s.years,year ? Math.min(year+1,INTERNAL_HORIZON_AGE-s.age-1):s.years); return { today,target,projected,totalInvested,returns:Math.max(0,projected-totalInvested),year,validationIssue:issue,series:Array.from({length:Math.max(0,seriesEnd)+1},(_,y)=>({year:y,capital:futureValue(s,y),contributed:invested(s,y),target:goldenNumber(s.monthlySpend,y,s.targetReturn,s.age)})) } }
 export function countryFromPhone(phone?:string) { const normalized=(phone||'').replace(/[^\d+]/g,''); return normalized.startsWith('+57')||normalized.startsWith('57') ? 'CO' : undefined }
 /**
