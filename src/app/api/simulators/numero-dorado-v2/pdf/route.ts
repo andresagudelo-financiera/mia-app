@@ -13,6 +13,7 @@ function getMiaUserToken(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const requestedPlan = await request.json().catch(() => null)
   const token = getMiaUserToken(request)
   if (!token) return NextResponse.json({ error: 'Debes iniciar sesión para descargar tu PDF.' }, { status: 401 })
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok || payload?.errors?.length) return NextResponse.json({ error: payload?.errors?.[0]?.message || 'No se pudo consultar tu simulación.' }, { status: response.ok ? 502 : response.status })
     if (!simulatorResponse?.result) return NextResponse.json({ error: 'Completa la calculadora antes de descargar tu PDF.' }, { status: 422 })
 
-    const pdf = createGoldenNumberV2Pdf(simulatorResponse.result as Record<string, any>)
+    const pdf = createGoldenNumberV2Pdf({ ...(simulatorResponse.result as Record<string, any>), plan: requestedPlan?.plan })
     const body = pdf.buffer.slice(pdf.byteOffset, pdf.byteOffset + pdf.byteLength) as ArrayBuffer
     return new NextResponse(body, {
       headers: {
