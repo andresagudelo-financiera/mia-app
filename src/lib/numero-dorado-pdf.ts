@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { calculateGoldenNumberV2, waitYearLabel, waitYearOptions, waitingCost, type GoldenNumberV2Settings } from '@/lib/numero-dorado-v2'
 
 const DISCLAIMER = 'Esta simulación es informativa y no constituye asesoría financiera ni una garantía de resultados. Los rendimientos pasados no garantizan rendimientos futuros.'
 
@@ -76,26 +77,71 @@ function recommendation(result: JsonRecord) {
   return 'Tu siguiente paso es revisar aportes, diversificación y horizonte para que tu estrategia acompañe la meta que definiste.'
 }
 
+function settingsFromResult(result: JsonRecord): GoldenNumberV2Settings {
+  const input = asRecord(result.input)
+  const answers = asRecord(input.answers || input)
+  const calculation = asRecord(input.calculation || result.calculation)
+  return {
+    monthlySpend: Number(calculation.monthlyExpense || answers.gasto || answers.monthlySpend || 0),
+    years: Number(calculation.targetYears || answers.anios || answers.years || 0),
+    capital: Number(calculation.initialCapital || answers.capital || 0),
+    targetReturn: Number(calculation.targetGrossReturn || .08),
+    phase1Contribution: Number(calculation.phaseOneMonthlyContribution || 0),
+    phase1Return: Number(calculation.phaseOneGrossReturn || .08),
+    phase2Contribution: Number(calculation.phaseTwoMonthlyContribution || 0),
+    phase2Return: Number(calculation.phaseTwoGrossReturn || .12),
+    indexPhase1: Boolean(calculation.phaseOneIndexed),
+    indexPhase2: Boolean(calculation.phaseTwoIndexed),
+    age: Number(answers.edad || answers.age || 35),
+  }
+}
+
+function selectedWaitingImpact(result: JsonRecord) {
+  const input = asRecord(result.input)
+  const answers = asRecord(input.answers || input)
+  const settings = settingsFromResult(result)
+  const options = waitYearOptions(settings.years)
+  if (!options.length) return null
+  const requested = Number(answers.esperaAnios || answers.waitYears)
+  const waitYears = options.includes(requested) ? requested : options[0]
+  return { ...waitingCost(settings, waitYears), planYears: settings.years }
+}
+
+/** Uses only fields the person supplied: missing answers never become invented copy. */
 function portrait(result: JsonRecord) {
   const input = asRecord(result.input)
   const a = asRecord(input.answers || input)
-  const name = String(a.nombre || a.name || 'Esta persona')
-  const age = String(a.edad || a.age || '')
-  const occupation = String(a.ocupacion || a.occupation || ''); const sector = String(a.sector || '')
-  const dependents = String(a.dependientes || a.dependents || ''); const goal = String(a.objetivo || a.goal || '')
-  return `${name}${age ? ` tiene ${age} años` : ''}${occupation ? ` y hoy se desempeña como ${occupation.toLowerCase()}` : ''}${sector ? ` en ${sector}` : ''}. ${dependents ? `Comparte esta meta con ${dependents} dependiente(s) económico(s). ` : ''}${goal ? `Su prioridad es: ${goal}. ` : ''}Este plan toma sus respuestas como punto de partida para convertir una intención en decisiones concretas.`
+  const name = String(a.nombre || a.name || '').trim()
+  const age = String(a.edad || a.age || '').trim()
+  const occupation = String(a.ocupacion || a.occupation || '').trim()
+  const sector = String(a.sector || '').trim()
+  const dependents = String(a.dependientes || a.dependents || '').trim()
+  const urgency = String(a.urgencia || a.urgency || '').trim()
+  const horizonMonths = ({
+    'Ya, este mes': '1',
+    'En los próximos tres meses': '3',
+    'Este año': '12',
+  } as Record<string, string>)[urgency]
+  return [
+    [name && age ? `${name}, ${age} años` : name, occupation && sector ? `${occupation} en ${sector}` : occupation || sector, dependents ? (dependents === 'Nadie, solo yo' ? 'sin personas que dependan de ti' : `con ${dependents} persona${dependents === '1' ? '' : 's'} que depende${dependents === '1' ? '' : 'n'} de ti`) : ''].filter(Boolean).join(', '),
+    a.destino || a.destination ? `A fin de mes: ${String(a.destino || a.destination)}.` : '',
+    a.experiencia || a.experience ? `${String(a.experiencia || a.experience)}.` : '',
+    a.deuda || a.debt ? `Deudas: ${String(a.deuda || a.debt)}.` : '',
+    (a.objetivo || a.goal) && horizonMonths ? `Y quieres ${String(a.objetivo || a.goal)}, en los próximos ${horizonMonths} meses.` : '',
+  ].filter(Boolean).join(' ')
 }
 
 export function createGoldenNumberV2Pdf(result: JsonRecord): Uint8Array {
   const document = asRecord(result.pdfDocument)
   const results = asRecord(result.results)
-  const diagnosis = asRecord(result.diagnosis)
-  const calculation = asRecord(result.calculation)
-  const assumptions = asRecord(result.assumptions)
+  const settings = settingsFromResult(result)
+  const model = calculateGoldenNumberV2(settings)
   const levers = Array.isArray(document.levers) ? document.levers : Array.isArray(result.levers) ? result.levers : []
   const campaign = campaignConfig()
+  const inputAnswers = asRecord(asRecord(result.input).answers || result.input)
   const currency = String(document.currency || asRecord(result.input).currency || 'COP')
-  const name = String(document.personName || 'Tu')
+  const name = String(document.personName || inputAnswers.nombre || inputAnswers.name || '').trim()
+  const generatedOn = new Intl.DateTimeFormat('es-CO', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date())
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
   const width = doc.internal.pageSize.getWidth()
   const height = doc.internal.pageSize.getHeight()
@@ -130,34 +176,46 @@ export function createGoldenNumberV2Pdf(result: JsonRecord): Uint8Array {
   }
 
   doc.setFillColor(23, 21, 18); doc.rect(0, 0, width, 132, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(224, 180, 52)
-  doc.text('NÚMERO DORADO', margin, 44)
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(224, 180, 52)
+  doc.text('MONEY FLOW · TU PUNTO DE PARTIDA', margin, 42)
   doc.setFontSize(26); doc.setTextColor(255, 255, 255)
-  doc.text(`${name}, este es tu plan.`, margin, 82)
+  doc.text(name ? `${name}, tu plan en una hoja.` : 'Tu plan en una hoja.', margin, 80)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(239, 232, 213)
-  doc.text('Una fotografía de tu meta y de las palancas que puedes mover.', margin, 108)
+  doc.text(`Generado el ${generatedOn}`, margin, 106)
   y = 170
 
-  heading('Tu meta financiera')
-  metric('Dinero necesario hoy', formatMoney(document.summary?.presentCapital ?? results.presentCapital, currency), margin)
-  metric('Tu Número Dorado', formatMoney(document.summary?.futureCapital ?? results.futureCapital, currency), margin + 254)
+  const portraitNarrative = portrait(result)
+  if (portraitNarrative) {
+    heading('Tu retrato')
+    paragraph(portraitNarrative)
+  }
+
+  heading('Tu Número Dorado')
+  metric('Tu Número Dorado', formatMoney(document.summary?.futureCapital ?? results.futureCapital ?? model.target, currency), margin)
   y += 94
-  paragraph(`Este resultado usa un gasto mensual de ${formatMoney(calculation.monthlyExpense, currency)}, una meta a ${calculation.targetYears || 0} años y una inflación anual del ${Math.round((Number(assumptions.inflationRate) || 0.04) * 100)}%.`)
+  paragraph('Calculado para que tu dinero te alcance hasta los 85 años, pagándote un ingreso que crece con la inflación cada año.')
+  paragraph('Este es el patrimonio que reemplaza a tu pensión, sin depender de nadie.')
 
-  heading('Tu punto de partida')
-  paragraph(portrait(result))
-  paragraph(`Partes de ${formatMoney(calculation.initialCapital, currency)} de capital inicial. Cada aporte y cada rendimiento se suman desde ese punto para acercarte a la meta.`)
+  heading('Dónde estás hoy')
+  const crossoverYear = model.year
+  const goalAge = settings.age + settings.years
+  const crossoverAge = crossoverYear === null ? null : settings.age + crossoverYear
+  const yearsLate = crossoverYear === null ? null : crossoverYear - settings.years
+  paragraph(crossoverAge !== null && yearsLate !== null
+    ? `Con tu ritmo actual llegas a los ${crossoverAge}, no a los ${goalAge}. Tu plan funciona: le faltan ${yearsLate} años. Eso no se arregla con más esfuerzo, se arregla moviendo palancas.`
+    : `Tu meta es llegar a los ${goalAge}. Con las variables actuales aún no hay una fecha de cruce calculable.`)
+  metric('Patrimonio proyectado', formatMoney(document.summary?.projectedCapital ?? results.projectedCapital ?? model.projected, currency), margin)
+  metric('Lo ponen los rendimientos', formatMoney(results.returns ?? model.returns, currency), margin + 254)
+  y += 94
 
-  heading('Tu plan en dos tiempos')
-  paragraph(`Tu proyección combina un aporte inicial de ${formatMoney(calculation.phaseOneMonthlyContribution, currency)} al mes con una fase de aceleración de ${formatMoney(calculation.phaseTwoMonthlyContribution, currency)} al mes. Al final del plazo, ${formatMoney(document.summary?.projectedCapital ?? results.projectedCapital, currency)} serían patrimonio proyectado: ${formatMoney(results.totalInvested, currency)} los pones tú y ${formatMoney(results.returns, currency)} vendrían de rendimientos estimados.`)
-
-  heading('Diagnóstico de tu plan')
-  doc.setFillColor(240, 247, 242); doc.roundedRect(margin, y, width - margin * 2, 62, 9, 9, 'F')
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(28, 88, 58); doc.text(String(diagnosis.title || 'Revisa tus supuestos.'), margin + 14, y + 22)
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(46, 80, 62)
-  const diagnosticLines = doc.splitTextToSize(String(diagnosis.message || ''), width - margin * 2 - 28)
-  doc.text(diagnosticLines, margin + 14, y + 42); y += 78
-  paragraph(`Patrimonio proyectado al final del plazo: ${formatMoney(document.summary?.projectedCapital ?? results.projectedCapital, currency)}. Brecha estimada: ${formatMoney(results.gap, currency)}.`)
+  const waitingImpact = selectedWaitingImpact(result)
+  if (waitingImpact) {
+    heading('Costo de esperar')
+    metric('Te cuesta', formatMoney(waitingImpact.cost, currency), margin)
+    y += 94
+    paragraph(`Esperar ${waitingImpact.waitYears} ${waitYearLabel(waitingImpact.waitYears)} más con el mismo plan, a los ${waitingImpact.planYears} años.`)
+    paragraph(`Si arrancás ${waitingImpact.waitYears} ${waitYearLabel(waitingImpact.waitYears)} después con el mismo plan, esto es lo que el interés compuesto no llega a trabajar para vos. Cada año que esperás es un año que no vuelve.`)
+  }
 
   // Start the explanation on a deliberate second page. Previously, the recommendation
   // could spill over by itself, producing an almost empty page before the masterclass.
