@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateGoldenNumberV2, countryFromPhone, currencyForCountry, DEFAULT_GOLDEN_NUMBER_TARGET_RETURN, isSupportedGoldenNumberAge } from './numero-dorado-v2'
+import { calculateGoldenNumberV2, countryFromPhone, currencyForCountry, DEFAULT_GOLDEN_NUMBER_TARGET_RETURN, formatHighlightedGoldenNumber, goldenNumberCoveragePercentage, isSupportedGoldenNumberAge, waitYearLabel, waitYearOptions, waitingCost } from './numero-dorado-v2'
 
 const base = { monthlySpend: 0, years: 10, capital: 0, targetReturn: .06, phase1Contribution: 0, phase1Return: .06, phase2Contribution: 0, phase2Return: .12, indexPhase1: false, indexPhase2: false, age: 34 }
 
@@ -41,6 +41,22 @@ describe('Número Dorado V2 calculation', () => {
     expect(result.series.at(-1)?.year).toBe(45)
   })
 
+  it('filters wait choices by plan horizon and uses singular/plural labels', () => {
+    expect(waitYearOptions(3)).toEqual([1, 2])
+    expect(waitYearOptions(5)).toEqual([1, 2, 3])
+    expect(waitYearOptions(6)).toEqual([1, 2, 3, 5])
+    expect(waitYearLabel(1)).toBe('año')
+    expect(waitYearLabel(2)).toBe('años')
+  })
+
+  it('measures waiting cost using the same plan with fewer compounding years', () => {
+    const settings = { ...base, years: 10, capital: 1_000, phase1Contribution: 100, phase2Contribution: 125, phase1Return: .08, phase2Return: .12 }
+    const impact = waitingCost(settings, 2)
+    expect(impact.waitYears).toBe(2)
+    expect(impact.currentPlan).toBeGreaterThan(impact.delayedPlan)
+    expect(impact.cost).toBe(impact.currentPlan - impact.delayedPlan)
+  })
+
   it('uses the spreadsheet finite-horizon formula for the approved reference case', () => {
     const result = calculateGoldenNumberV2({ ...base, age: 50, years: 10, monthlySpend: 1_500, targetReturn: .12 })
     // 18,000 annual expense, 10-year goal, Excel F9+1 timing convention and finite coverage period.
@@ -69,5 +85,18 @@ describe('Número Dorado V2 calculation', () => {
     expect(currencyForCountry('MX')).toBe('MXN')
     expect(currencyForCountry('GF')).toBe('EUR')
     expect(currencyForCountry('BR')).toBe('USD')
+  })
+
+  it('formats only the highlighted COP result cards in whole millions', () => {
+    expect(formatHighlightedGoldenNumber(741_396_183, 'COP')).toBe('$ 741 Millones')
+    expect(formatHighlightedGoldenNumber(539_570_828, 'COP')).toBe('$ 539 Millones')
+    expect(formatHighlightedGoldenNumber(29_626_036, 'COP')).toBe('$ 29 Millones')
+    expect(formatHighlightedGoldenNumber(741_396, 'USD')).toBe('$741,396')
+  })
+
+  it('updates the coverage percentage when initial capital changes', () => {
+    const target = 539_570_828
+    expect(goldenNumberCoveragePercentage(0, target)).toBe(0)
+    expect(goldenNumberCoveragePercentage(100_000_000, target)).toBe(19)
   })
 })

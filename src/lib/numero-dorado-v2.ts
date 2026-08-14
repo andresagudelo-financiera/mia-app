@@ -46,6 +46,22 @@ export function validationIssue(s: Pick<GoldenNumberV2Settings, 'age' | 'years' 
 }
 export function futureValueYears(initial:number, monthly:number, grossReturn:number, years:number, indexed:boolean) { const m=Math.pow(1+realRate(grossReturn),1/12)-1; const annual=Math.pow(1+m,12); let balance=initial; for(let y=0;y<Math.round(years);y++){ const contribution=indexed ? monthly*Math.pow(1+INFLATION,y) : monthly; const annuity=m>0 ? contribution*((annual-1)/m)*(1+m) : contribution*12; balance=balance*annual+annuity } return balance }
 export function futureValue(s:GoldenNumberV2Settings, years=s.years) { const y1=Math.min(years,PHASE_ONE_YEARS); return futureValueYears(futureValueYears(s.capital,s.phase1Contribution,s.phase1Return,y1,s.indexPhase1),s.phase2Contribution,s.phase2Return,Math.max(0,years-PHASE_ONE_YEARS),s.indexPhase2) }
+export const WAIT_YEAR_CHOICES = [1, 2, 3, 5] as const
+/** Valid delay choices are always shorter than the selected plan horizon. */
+export function waitYearOptions(planYears: number): number[] {
+ return WAIT_YEAR_CHOICES.filter((years) => years < Math.max(0, Math.floor(planYears)))
+}
+export function waitYearLabel(years: number): string { return years === 1 ? 'año' : 'años' }
+/**
+ * Compares the same plan against starting N years later. The shorter projection
+ * intentionally gives the initial capital only the remaining time to earn.
+ */
+export function waitingCost(s: GoldenNumberV2Settings, waitYears: number) {
+ const wait = Math.max(0, Math.min(Math.floor(waitYears), Math.max(0, Math.floor(s.years) - 1)))
+ const currentPlan = futureValue(s, s.years)
+ const delayedPlan = futureValue(s, Math.max(0, s.years - wait))
+ return { waitYears: wait, currentPlan, delayedPlan, cost: Math.max(0, currentPlan - delayedPlan) }
+}
 export function invested(s:GoldenNumberV2Settings, years=s.years) { let total=s.capital; for(let y=0;y<Math.min(years,PHASE_ONE_YEARS);y++) total += s.phase1Contribution*12*(s.indexPhase1?Math.pow(1+INFLATION,y):1); for(let y=0;y<Math.max(0,years-PHASE_ONE_YEARS);y++) total += s.phase2Contribution*12*(s.indexPhase2?Math.pow(1+INFLATION,y):1); return total }
 /** Finds the first meaningful crossover, including years after the selected plan.
  * The graph may therefore extend beyond the chosen deadline, but never beyond
@@ -88,6 +104,17 @@ const ROUND_GRANULARITY:Record<string,number>={COP:100000,CLP:1000,MXN:100,USD:1
 export function roundCurrencyAmount(value:number,currency:string){const g=ROUND_GRANULARITY[currency]||1;return Math.round(value/g)*g}
 export function convertCurrencyWithSnapshot(value:number,from:string,to:string,snapshot:GoldenNumberFxSnapshot=DEFAULT_GOLDEN_NUMBER_FX_SNAPSHOT){if(from===to)return Math.round(value);const rates=snapshot.rates||CURRENCY_RATES;return Math.round(value/(rates[from]||1)*(rates[to]||1))}
 export function formatCurrencyInteger(value:number,currency:string){return new Intl.NumberFormat(currency==='COP'||currency==='CLP'?'es-CO':'en-US',{style:'currency',currency,maximumFractionDigits:0}).format(Math.round(value))}
+/** Screen-only summary for the two large COP outcome cards; underlying calculations and reports retain their full precision. */
+export function formatHighlightedGoldenNumber(value:number,currency:string):string {
+ if (!Number.isFinite(value)) return 'No disponible'
+ if (currency==='COP' && Math.abs(value)>=1_000_000) return `$ ${Math.floor(Math.abs(value)/1_000_000)} Millones`
+ return formatCurrencyInteger(value,currency)
+}
+/** Keeps the coverage card derived from the active plan settings, including live capital edits. */
+export function goldenNumberCoveragePercentage(capital:number,target:number):number {
+ if (!Number.isFinite(capital) || !Number.isFinite(target) || target<=0) return 0
+ return Math.min(999,Math.round(Math.max(0,capital)/target*100))
+}
 /**
  * Formats Magned income ranges with the selected currency code after the value.
  * IDs and underlying USD-equivalent breaks stay stable for persistence/conversion.
