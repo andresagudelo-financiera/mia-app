@@ -95,8 +95,8 @@ export const simulatorsApi = {
     return payload.simulatorResponse
   },
 
-  async downloadGoldenNumberV2Pdf() {
-    const response = await fetch('/api/simulators/numero-dorado-v2/pdf', { method: 'POST' })
+  async downloadGoldenNumberV2Pdf(plan: unknown) {
+    const response = await fetch('/api/simulators/numero-dorado-v2/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) })
     if (!response.ok) throw new Error('No se pudo generar tu PDF.')
     return response.blob()
   },

@@ -39,8 +39,8 @@ export const magnedGoldenNumberApi = {
     // is not collected on this form and must never be inferred.
     return request('/api/magned/numero-dorado', { method: 'POST', body: JSON.stringify({ action: 'contact', contact }) })
   },
-  async downloadPdf() {
-    const response = await fetch('/api/magned/numero-dorado/pdf', { method: 'POST' })
+  async downloadPdf(plan: unknown) {
+    const response = await fetch('/api/magned/numero-dorado/pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan }) })
     if (!response.ok) throw new Error('No pudimos generar tu PDF.')
     return response.blob()
   },
